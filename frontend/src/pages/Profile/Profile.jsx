@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-toastify';
 import { FaUser, FaEnvelope, FaPhone, FaCity, FaBuilding } from 'react-icons/fa';
+import defaultProfilePic from '../../assets/default-profile.svg';
 
 const Profile = () => {
   const { user, updateProfile, isAuthenticated } = useAuth();
@@ -117,9 +118,11 @@ const Profile = () => {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gray-100">
-                      <FaUser className="text-4xl text-gray-400" />
-                    </div>
+                    <img
+                      src={defaultProfilePic}
+                      alt={user.name || 'User'}
+                      className="w-full h-full object-cover"
+                    />
                   )}
                 </div>
                 

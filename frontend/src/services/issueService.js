@@ -44,8 +44,12 @@ export const createIssue = async (issueData) => {
         ],
         address: issueData.location.address
       },
-      city: issueData.city // Send city name directly, let backend resolve it
+      // Ensure proper city data format - backend expects city name as string
+      city: typeof issueData.city === 'string' ? issueData.city : 
+            (issueData.city && issueData.city.name ? issueData.city.name : 'Unknown')
     };
+    
+    console.log('Formatted city data for API:', jsonData.city);
 
     console.log('Sending issue data:', jsonData);
 

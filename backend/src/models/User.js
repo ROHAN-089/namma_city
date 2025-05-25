@@ -48,7 +48,7 @@ const userSchema = new mongoose.Schema({
   },
   profileImage: {
     type: String, // URL to Cloudinary image
-    default: 'https://res.cloudinary.com/demo/image/upload/v1580125958/samples/people/default-avatar.jpg'
+    default: 'https://res.cloudinary.com/dnuhcjztp/image/upload/v1748156279/profile_pic.jpg'
   },
   resetPasswordToken: String,
   resetPasswordExpire: Date,

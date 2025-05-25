@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { FaUserCircle, FaReply, FaPaperPlane, FaClock } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
+import defaultProfilePic from '../../assets/default-profile.svg';
 
 const Comment = ({ comment, onReply }) => {
   const timeAgo = (date) => {
@@ -40,9 +41,11 @@ const Comment = ({ comment, onReply }) => {
             alt={comment.user.name}
           />
         ) : (
-          <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-            <FaUserCircle className="text-blue-600 text-2xl" />
-          </div>
+          <img
+            className="h-10 w-10 rounded-full"
+            src={defaultProfilePic}
+            alt={comment.user.name || 'User'}
+          />
         )}
       </div>
       <div className="flex-grow">
@@ -334,9 +337,11 @@ const CommentBox = ({ issueId }) => {
                       alt={user.name}
                     />
                   ) : (
-                    <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                      <FaUserCircle className="text-blue-600 text-2xl" />
-                    </div>
+                    <img
+                      className="h-10 w-10 rounded-full"
+                      src={defaultProfilePic}
+                      alt={user.name || 'User'}
+                    />
                   )}
                 </div>
 

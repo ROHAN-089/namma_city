@@ -34,8 +34,13 @@ const Home = () => {
 
   // Set user's city as selected city when user logs in
   useEffect(() => {
-    if (user && user.city && user.city.name) {
-      setSelectedCity(user.city.name);
+    if (user && user.city) {
+      // Handle both string and object formats for user.city
+      const cityName = typeof user.city === 'string' ? user.city : (user.city.name || '');
+      if (cityName) {
+        console.log('Setting selected city from user profile:', cityName);
+        setSelectedCity(cityName);
+      }
     }
   }, [user]);
 
@@ -97,14 +102,38 @@ const Home = () => {
     console.log('Filtering issues, total count:', issues.length);
     console.log('Selected city:', selectedCity);
     
+    // Debug all issues and their city data
+    issues.forEach((issue, index) => {
+      const cityData = issue.city;
+      console.log(`Issue ${index}: ${issue.title} - City:`, 
+                  typeof cityData === 'string' ? cityData : 
+                  (cityData && cityData.name ? cityData.name : 'No city'));
+    });
+    
     let result = [...issues];
 
     // Filter by city
     if (selectedCity) {
       result = result.filter(issue => {
-        // Handle different city formats (string name or object with name property)
-        const issueCity = typeof issue.city === 'string' ? issue.city : issue.city?.name;
-        const matches = issueCity === selectedCity;
+        // Get issue city name handling different data formats
+        let issueCity = null;
+        
+        if (typeof issue.city === 'string') {
+          issueCity = issue.city;
+        } else if (issue.city && typeof issue.city === 'object') {
+          issueCity = issue.city.name || '';
+        }
+        
+        // If we couldn't extract a city name, this issue doesn't match
+        if (!issueCity) return false;
+        
+        // Compare city names in a case-insensitive way
+        const matches = issueCity.toLowerCase() === selectedCity.toLowerCase();
+        
+        if (matches) {
+          console.log(`Issue matched city filter: ${issue.title} - ${issueCity}`);
+        }
+        
         return matches;
       });
       console.log('After city filtering:', result.length);
@@ -322,7 +351,7 @@ const Home = () => {
           </p>
         </div>
         
-        {user?.city?.name && (
+        {user?.city && (
           <div className="flex justify-center mb-8 gap-4">
             <button 
               onClick={() => {
@@ -331,25 +360,47 @@ const Home = () => {
                 setSearchQuery('');
                 setSortBy('latest');
                 
-                // Then set the city filter
-                setSelectedCity(user.city.name);
+                // Get user city name regardless of data structure
+                const userCityName = typeof user.city === 'string' ? user.city : (user.city?.name || '');
+                console.log('User city for filtering:', userCityName);
                 
-                // Manually filter the issues for emergency fix
+                if (!userCityName) {
+                  console.error('Cannot filter: User city name is empty');
+                  return;
+                }
+                
+                // Set the city filter
+                setSelectedCity(userCityName);
+                
+                // Manually filter the issues with robust city comparison
                 const cityIssues = issues.filter(issue => {
-                  const issueCity = typeof issue.city === 'string' ? issue.city : issue.city?.name;
-                  return issueCity === user.city.name;
+                  // Extract issue city name handling different formats
+                  let issueCity = '';
+                  
+                  if (typeof issue.city === 'string') {
+                    issueCity = issue.city;
+                  } else if (issue.city && typeof issue.city === 'object') {
+                    issueCity = issue.city.name || '';
+                  }
+                  
+                  // Case-insensitive comparison
+                  const matches = issueCity.toLowerCase() === userCityName.toLowerCase();
+                  if (matches) {
+                    console.log(`Match found: Issue ${issue.title} in city ${issueCity}`);
+                  }
+                  return matches;
                 });
                 
-                console.log(`Filtered to ${cityIssues.length} issues in ${user.city.name}`);
+                console.log(`Filtered to ${cityIssues.length} issues in ${userCityName}`);
                 setFilteredIssues(cityIssues);
               }}
-              className={`flex items-center px-6 py-3 rounded-lg shadow-sm transition-all ${selectedCity === user.city.name 
+              className={`flex items-center px-6 py-3 rounded-lg shadow-sm transition-all ${selectedCity && selectedCity.toLowerCase() === (typeof user.city === 'string' ? user.city.toLowerCase() : (user.city?.name || '').toLowerCase()) 
                 ? 'bg-blue-600 text-white font-medium shadow-md'
                 : 'bg-white text-blue-600 hover:bg-blue-50 border border-blue-200'}`}
             >
               <FaMapMarkerAlt className="mr-2" /> 
-              <span>Show Issues in {user.city.name}</span>
-              {selectedCity === user.city.name && (
+              <span>Show Issues in {typeof user.city === 'string' ? user.city : (user.city?.name || '')}</span>
+              {selectedCity && selectedCity.toLowerCase() === (typeof user.city === 'string' ? user.city.toLowerCase() : (user.city?.name || '').toLowerCase()) && (
                 <span className="ml-2 bg-blue-500 text-xs px-2 py-0.5 rounded-full">
                   Active
                 </span>

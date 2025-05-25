@@ -151,12 +151,17 @@ const IssueForm = () => {
   useEffect(() => {
     if (user?.city) {
       // If user has a city in their profile, try to find a matching city
-      const userCity = cities.find(city => city.name.toLowerCase() === user.city.toLowerCase());
-      if (userCity) {
-        setFormData(prev => ({
-          ...prev,
-          city: userCity.name
-        }));
+      // Check if user.city is an object (with name property) or a string
+      const cityName = typeof user.city === 'string' ? user.city : (user.city.name || '');
+      
+      if (cityName) {
+        const userCity = cities.find(city => city.name.toLowerCase() === cityName.toLowerCase());
+        if (userCity) {
+          setFormData(prev => ({
+            ...prev,
+            city: userCity.name
+          }));
+        }
       }
     } else if (cities.length > 0) {
       // Default to first city if no user city is set
@@ -214,13 +219,14 @@ const IssueForm = () => {
       setIsSubmitting(true);
       setError('');
 
-      // Format the data for submission, using just the city name
+      // Format the data for submission
       const issueData = {
         title: formData.title.trim(),
         description: formData.description.trim(),
         category: formData.category,
         priority: formData.priority,
-        city: formData.city, // Send just the city name
+        // Find the complete city object from the cities array
+        city: cities.find(city => city.name === formData.city) || { name: formData.city },
         location: {
           type: 'Point',
           coordinates: [
@@ -231,6 +237,8 @@ const IssueForm = () => {
         },
         images: formData.images
       };
+      
+      console.log('Issue with city data:', issueData.city);
 
       // Call API to create the issue
       const result = await createIssue(issueData);
