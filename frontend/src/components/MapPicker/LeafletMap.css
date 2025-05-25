@@ -1,0 +1,44 @@
+/* Leaflet container needs explicit dimensions */
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+  min-height: 300px;
+  border-radius: 4px;
+}
+
+/* Fix for default marker icons */
+.leaflet-default-icon-path {
+  background-image: url('leaflet/dist/images/marker-icon.png');
+}
+
+/* Ensure the map tiles are loaded properly */
+.leaflet-tile {
+  filter: none !important;
+}
+
+/* Popup styling */
+.leaflet-popup-content {
+  margin: 8px 12px;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 4px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* Search input styling */
+.leaflet-top {
+  z-index: 1000;
+}
+
+/* Make sure the map container is interactive */
+.leaflet-interactive {
+  cursor: pointer;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .leaflet-container {
+    min-height: 250px;
+  }
+}
