@@ -9,7 +9,8 @@ const {
   upvoteIssue,
   downvoteIssue,
   getUserIssues,
-  getDepartmentIssues
+  getDepartmentIssues,
+  addFeedback
 } = require('../controllers/issueController');
 const { protect, department, departmentOrAdmin } = require('../middleware/authMiddleware');
 const { uploadIssueImage } = require('../config/cloudinary');
@@ -26,6 +27,7 @@ router.route('/:id')
 
 router.post('/:id/upvote', protect, upvoteIssue);
 router.post('/:id/downvote', protect, downvoteIssue);
+router.put('/:id/feedback', protect, addFeedback);
 
 // User and department specific routes
 router.get('/user/issues', protect, getUserIssues);

@@ -50,6 +50,25 @@ const userSchema = new mongoose.Schema({
     type: String, // URL to Cloudinary image
     default: 'https://res.cloudinary.com/dnuhcjztp/image/upload/v1748156279/profile_pic.jpg'
   },
+  idProof: {
+    type: String, // URL to uploaded ID proof document
+    // Only required if role is department, but allowing default value
+    validate: {
+      validator: function(v) {
+        // Required for department roles, but can be 'pending'
+        return this.role !== 'department' || (v && v.length > 0);
+      },
+      message: 'ID proof is required for department registration'
+    },
+    default: function() {
+      // Provide a default value for department users
+      return this.role === 'department' ? 'pending_verification' : undefined;
+    }
+  },
+  idProofVerified: {
+    type: Boolean,
+    default: false // Will be set to true by admin after verification
+  },
   resetPasswordToken: String,
   resetPasswordExpire: Date,
   createdAt: {

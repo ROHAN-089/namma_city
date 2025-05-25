@@ -36,13 +36,32 @@ const cityImagesStorage = new CloudinaryStorage({
   }
 });
 
+const idProofStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: async (req, file) => {
+    // Determine resource type based on file mimetype
+    const resourceType = file.mimetype.includes('pdf') ? 'raw' : 'image';
+    console.log('Uploading ID proof with resource type:', resourceType, 'mimetype:', file.mimetype);
+    
+    return {
+      folder: 'city-reporter/id-proofs',
+      allowed_formats: ['jpg', 'jpeg', 'png', 'pdf'],
+      resource_type: resourceType,
+      // Apply transformation only for images
+      transformation: resourceType === 'image' ? [{ quality: 'auto:good' }] : []
+    };
+  }
+});
+
 const uploadIssueImage = multer({ storage: issueImagesStorage });
 const uploadProfileImage = multer({ storage: profileImagesStorage });
 const uploadCityImage = multer({ storage: cityImagesStorage });
+const uploadIdProof = multer({ storage: idProofStorage });
 
 module.exports = {
   cloudinary,
   uploadIssueImage,
   uploadProfileImage,
-  uploadCityImage
+  uploadCityImage,
+  uploadIdProof
 };

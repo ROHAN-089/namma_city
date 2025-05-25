@@ -1,18 +1,41 @@
 import api from './api';
 
 // User registration
-export const registerUser = async (userData) => {
-  const response = await api.post('/users', userData);
-  return response.data;
+export const registerUser = async (userData, isMultipart = false) => {
+  // Check if userData is FormData (file upload) or regular JSON
+  if (isMultipart) {
+    const response = await api.post('/users', userData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    return response.data;
+  } else {
+    const response = await api.post('/users', userData);
+    return response.data;
+  }
 };
 
 // Department registration
-export const registerDepartment = async (departmentData) => {
-  const response = await api.post('/users', {
-    ...departmentData,
-    role: 'department'
-  });
-  return response.data;
+export const registerDepartment = async (departmentData, isMultipart = false) => {
+  // Ensure role is set to department
+  if (isMultipart) {
+    // For FormData
+    departmentData.append('role', 'department');
+    const response = await api.post('/users', departmentData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    return response.data;
+  } else {
+    // For JSON data
+    const response = await api.post('/users', {
+      ...departmentData,
+      role: 'department'
+    });
+    return response.data;
+  }
 };
 
 // User login

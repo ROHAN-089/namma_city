@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { FaBuilding, FaCity, FaUsers, FaPhone, FaEnvelope, FaKey, FaIdCard } from 'react-icons/fa';
+import { FaBuilding, FaCity, FaUsers, FaPhone, FaEnvelope, FaKey, FaIdCard, FaFileUpload, FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
+import { indianCities } from '../../data/indianCities';
 
 const DepartmentRegisterForm = () => {
   const [formData, setFormData] = useState({
@@ -16,6 +17,10 @@ const DepartmentRegisterForm = () => {
     jurisdiction: '',
   });
   
+  const [idProofFile, setIdProofFile] = useState(null);
+  const [idProofPreview, setIdProofPreview] = useState(null);
+  const [idProofError, setIdProofError] = useState('');
+  
   const [cities, setCities] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -26,35 +31,19 @@ const DepartmentRegisterForm = () => {
 
   // Load available cities
   useEffect(() => {
-    const fetchCities = async () => {
-      try {
-        // Get cities from the backend API
-        const response = await fetch('http://localhost:5001/api/cities');
-        const data = await response.json();
-        
-        if (response.ok) {
-          setCities(data);
-        } else {
-          console.error('Error fetching cities:', data.message);
-          // Fallback to mock data if API fails
-          setCities([
-            { _id: '1', name: 'Mumbai', state: 'Maharashtra' },
-            { _id: '2', name: 'Delhi', state: 'Delhi' },
-            { _id: '3', name: 'Bangalore', state: 'Karnataka' },
-          ]);
-        }
-      } catch (err) {
-        console.error('Error fetching cities:', err);
-        // Fallback to mock data if API fails
-        setCities([
-          { _id: '1', name: 'Mumbai', state: 'Maharashtra' },
-          { _id: '2', name: 'Delhi', state: 'Delhi' },
-          { _id: '3', name: 'Bangalore', state: 'Karnataka' },
-        ]);
+    // Map the indianCities data to include an _id property
+    // This makes it compatible with how we're handling city data elsewhere
+    const formattedCities = indianCities.map((city, index) => ({
+      _id: index.toString(), // Use index as a string for the _id
+      name: city.name,
+      state: city.state,
+      coordinates: {
+        lat: city.lat,
+        lng: city.lng
       }
-    };
+    }));
     
-    fetchCities();
+    setCities(formattedCities);
   }, []);
 
   // Handle form input changes
@@ -64,6 +53,41 @@ const DepartmentRegisterForm = () => {
       ...prev,
       [name]: value,
     }));
+  };
+
+  // Handle ID proof image upload
+  const handleIdProofChange = (e) => {
+    const file = e.target.files[0];
+    setIdProofError('');
+    
+    if (!file) return;
+    
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
+    if (!validTypes.includes(file.type)) {
+      setIdProofError('Please upload a valid file (JPEG, PNG, or PDF)');
+      return;
+    }
+    
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setIdProofError('File size must be less than 5MB');
+      return;
+    }
+    
+    setIdProofFile(file);
+    
+    // Create preview for image files
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setIdProofPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    } else if (file.type === 'application/pdf') {
+      // For PDF files, just show an icon or text
+      setIdProofPreview('pdf');
+    }
   };
 
   // Validate form
@@ -102,6 +126,16 @@ const DepartmentRegisterForm = () => {
       setError('Passwords do not match');
       return false;
     }
+    
+    if (!idProofFile) {
+      setError('Please upload ID proof document');
+      return false;
+    }
+
+    if (idProofError) {
+      setError(idProofError);
+      return false;
+    }
 
     return true;
   };
@@ -116,20 +150,38 @@ const DepartmentRegisterForm = () => {
       setIsSubmitting(true);
       setError('');
       
-      const departmentData = {
-        name: formData.departmentName, // Match the backend field names
-        departmentType: formData.departmentType,
-        city: formData.city,
-        contactPerson: formData.contactPerson,
-        phoneNumber: formData.phone, // Match the backend field name
-        email: formData.email,
-        password: formData.password,
-        jurisdiction: formData.jurisdiction,
-        role: 'department'
-      };
+      // Create a FormData object to handle file upload
+      const formDataToSend = new FormData();
       
-      // Register the department user
-      const result = await register(departmentData);
+      // Add all department data
+      formDataToSend.append('name', formData.departmentName);
+      // Use departmentType as the department field that the backend expects
+      formDataToSend.append('department', formData.departmentType);
+      
+      // Find the selected city data
+      const selectedCity = cities.find(city => city._id === formData.city);
+      if (selectedCity) {
+        // Send the city name with state for better identification
+        formDataToSend.append('city', `${selectedCity.name}, ${selectedCity.state}`);
+      } else {
+        formDataToSend.append('city', formData.city);
+      }
+      
+      formDataToSend.append('contactPerson', formData.contactPerson);
+      formDataToSend.append('phoneNumber', formData.phone);
+      formDataToSend.append('email', formData.email);
+      formDataToSend.append('password', formData.password);
+      formDataToSend.append('jurisdiction', formData.jurisdiction);
+      formDataToSend.append('role', 'department');
+      
+      // Add the ID proof file with proper filename
+      if (idProofFile) {
+        console.log('Appending file:', idProofFile.name, idProofFile.type);
+        formDataToSend.append('idProof', idProofFile, idProofFile.name);
+      }
+      
+      // Register the department user with ID proof
+      const result = await register(formDataToSend, true); // Second parameter indicates multipart/form-data
       
       if (result.success) {
         setSuccess(true);
@@ -326,6 +378,75 @@ const DepartmentRegisterForm = () => {
               value={formData.jurisdiction}
               onChange={handleChange}
             />
+          </div>
+          
+          {/* ID Proof Upload Section */}
+          <div className="md:col-span-2 mt-4">
+            <label htmlFor="idProof" className="text-gray-700 text-sm font-medium mb-2 flex items-center">
+              <FaFileUpload className="mr-2" />
+              ID Proof Document* (Government issued ID for verification)
+            </label>
+            
+            <div className="mt-2">
+              <div className="flex items-center justify-center w-full">
+                <label
+                  htmlFor="idProof"
+                  className={`flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 ${idProofError ? 'border-red-300' : 'border-gray-300'}`}
+                >
+                  {!idProofPreview ? (
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <FaFileUpload className="w-10 h-10 text-gray-400 mb-3" />
+                      <p className="mb-2 text-sm text-gray-500">
+                        <span className="font-semibold">Click to upload</span> or drag and drop
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        PDF, PNG, JPG or JPEG (Max 5MB)
+                      </p>
+                    </div>
+                  ) : idProofPreview === 'pdf' ? (
+                    <div className="flex flex-col items-center justify-center">
+                      <FaCheckCircle className="w-10 h-10 text-green-500 mb-3" />
+                      <p className="text-sm text-gray-500">PDF document uploaded</p>
+                      <p className="text-xs text-gray-400 mt-1">{idProofFile.name}</p>
+                    </div>
+                  ) : (
+                    <div className="relative w-full h-full">
+                      <img
+                        src={idProofPreview}
+                        alt="ID Proof"
+                        className="w-full h-full object-contain"
+                      />
+                      <div className="absolute bottom-2 right-2 bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
+                        Image uploaded
+                      </div>
+                    </div>
+                  )}
+                  <input
+                    id="idProof"
+                    type="file"
+                    className="hidden"
+                    accept="image/*,.pdf"
+                    onChange={handleIdProofChange}
+                  />
+                </label>
+              </div>
+              {idProofError && (
+                <p className="mt-2 text-sm text-red-600 flex items-center">
+                  <FaTimesCircle className="mr-1" />
+                  {idProofError}
+                </p>
+              )}
+              {idProofFile && !idProofError && (
+                <p className="mt-2 text-sm text-green-600 flex items-center">
+                  <FaCheckCircle className="mr-1" />
+                  File uploaded successfully!
+                </p>
+              )}
+              <p className="mt-1 text-xs text-gray-500">
+                Please upload a valid government-issued ID to verify your department's authenticity.
+                This will be reviewed by our administrators before account approval.
+              </p>
+            </div>
           </div>
         </div>
         

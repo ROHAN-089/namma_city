@@ -2,8 +2,24 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { FaSpinner, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa';
 
-const StatusUpdater = ({ issueId, currentStatus, onStatusUpdate }) => {
-  const [status, setStatus] = useState(currentStatus || 'Open');
+const StatusUpdater = ({ issueId, currentStatus, onStatusUpdate, allowedStatuses }) => {
+  // Convert backend status to our display status if needed
+  const getDisplayStatus = (backendStatus) => {
+    const statusMap = {
+      'reported': 'Open',
+      'in_progress': 'In Progress',
+      'resolved': 'Resolved',
+      'reopened': 'Open',
+      'closed': 'Resolved'
+    };
+    return statusMap[backendStatus] || 'Open';
+  };
+  
+  const displayStatus = currentStatus && currentStatus.includes('_') 
+    ? getDisplayStatus(currentStatus) 
+    : (currentStatus || 'Open');
+    
+  const [status, setStatus] = useState(displayStatus);
   const [comment, setComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -11,13 +27,11 @@ const StatusUpdater = ({ issueId, currentStatus, onStatusUpdate }) => {
   
   const { user } = useAuth();
 
+  // Always use just these three statuses - these are the only ones we want to support
   const statusOptions = [
-    { value: 'Open', label: 'Open', color: 'text-red-500' },
-    { value: 'In Progress', label: 'In Progress', color: 'text-yellow-500' },
-    { value: 'Under Review', label: 'Under Review', color: 'text-purple-500' },
-    { value: 'On Hold', label: 'On Hold', color: 'text-orange-500' },
-    { value: 'Resolved', label: 'Resolved', color: 'text-green-500' },
-    { value: 'Closed', label: 'Closed', color: 'text-gray-500' }
+    { value: 'Open', label: 'Open', color: 'text-red-500', icon: '🔴' },
+    { value: 'In Progress', label: 'In Progress', color: 'text-yellow-500', icon: '🟡' },
+    { value: 'Resolved', label: 'Resolved', color: 'text-green-500', icon: '🟢' }
   ];
 
   const getStatusColorClass = (statusValue) => {
@@ -48,25 +62,41 @@ const StatusUpdater = ({ issueId, currentStatus, onStatusUpdate }) => {
         updatedAt: new Date().toISOString()
       };
 
-      // TODO: Replace with actual API call
-      // const response = await axios.put(`/api/issues/${issueId}/status`, updateData);
-      
-      // Simulate API call
-      setTimeout(() => {
-        setIsSubmitting(false);
-        setSuccess(true);
-        setComment('');
-        
-        // Call the callback function if provided
-        if (onStatusUpdate) {
-          onStatusUpdate(status, updateData.comment);
+          // Call the callback function if provided - directly, no simulation
+      if (onStatusUpdate) {
+        try {
+          // Log the exact data we're sending
+          console.log(`StatusUpdater: Updating status to ${status}`);
+          console.log('StatusUpdater: Comment:', comment.trim() || `Status updated to: ${status}`);
+          
+          // Call the parent component's update function
+          const result = await onStatusUpdate(status, comment.trim() || `Status updated to: ${status}`);
+          
+          // Check if the update was successful
+          if (result === false) {
+            setError('Failed to update status. Server returned an error.');
+            setIsSubmitting(false);
+            return;
+          }
+          
+          // Update UI to show success
+          setIsSubmitting(false);
+          setSuccess(true);
+          setComment('');
+          
+          // Reset success message after 3 seconds
+          setTimeout(() => {
+            setSuccess(false);
+          }, 3000);
+        } catch (error) {
+          console.error('Error in status update:', error);
+          setError(error.message || 'Failed to update status. Please try again.');
+          setIsSubmitting(false);
         }
-
-        // Reset success message after 3 seconds
-        setTimeout(() => {
-          setSuccess(false);
-        }, 3000);
-      }, 1000);
+      } else {
+        setIsSubmitting(false);
+        setError('Status update callback not provided');
+      }
       
     } catch (err) {
       setError(err.message || 'Failed to update status. Please try again.');
@@ -79,7 +109,7 @@ const StatusUpdater = ({ issueId, currentStatus, onStatusUpdate }) => {
   }
 
   return (
-    <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+    <div className="bg-white p-4 rounded-lg shadow-sm">
       <h3 className="text-lg font-medium text-gray-800 mb-3">Update Issue Status</h3>
       
       {error && (
@@ -114,7 +144,7 @@ const StatusUpdater = ({ issueId, currentStatus, onStatusUpdate }) => {
                 value={option.value}
                 className={option.color}
               >
-                {option.label}
+                {option.icon} {option.label}
               </option>
             ))}
           </select>

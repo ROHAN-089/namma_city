@@ -220,22 +220,37 @@ const updateIssue = asyncHandler(async (req, res) => {
   if (priority) issue.priority = priority;
   if (location) issue.location = location;
 
-  // Handle status changes
+  // Update status if provided and has changed
   if (req.body.status && req.body.status !== issue.status) {
     // Only department or admin can change status
     if (req.user.role !== 'admin' && req.user.role !== 'department') {
       res.status(403);
       throw new Error('Only departments or admins can change issue status');
     }
-
+    console.log(`Updating issue status from ${issue.status} to ${req.body.status}`);
     issue.status = req.body.status;
-
-    issue.statusHistory.push({
-      status: req.body.status,
-      changedBy: req.user._id,
-      note: req.body.statusNote || '',
-      timestamp: Date.now()
-    });
+    
+    // Add status note if provided or use default message
+    const statusNote = req.body.statusNote || req.body.comment || `Status updated to ${req.body.status}`;
+    
+    // Add to status history if tracking history
+    if (issue.statusHistory) {
+      issue.statusHistory.push({
+        status: req.body.status,
+        updatedBy: req.user._id,
+        updatedAt: new Date(),
+        note: statusNote,
+        timestamp: Date.now()
+      });
+    } else {
+      issue.statusHistory = [{
+        status: req.body.status,
+        updatedBy: req.user._id,
+        updatedAt: new Date(),
+        note: statusNote,
+        timestamp: Date.now()
+      }];
+    }
 
     // Update resolved/closed dates
     if (req.body.status === 'resolved' && !issue.resolvedAt) {
@@ -268,6 +283,36 @@ const updateIssue = asyncHandler(async (req, res) => {
   res.json(updatedIssue);
 });
 
+// @desc    Add feedback to issue (before deletion)
+// @route   PUT /api/issues/:id/feedback
+// @access  Private
+const addFeedback = asyncHandler(async (req, res) => {
+  const issue = await Issue.findById(req.params.id);
+
+  if (!issue) {
+    res.status(404);
+    throw new Error('Issue not found');
+  }
+
+  // Only admin or the one who reported can add feedback
+  if (
+    req.user.role !== 'admin' &&
+    issue.reportedBy.toString() !== req.user._id.toString()
+  ) {
+    res.status(403);
+    throw new Error('Not authorized to add feedback to this issue');
+  }
+
+  // Add the feedback to a feedback array or field
+  if (req.body.feedback) {
+    // Store feedback in a separate collection or log it as needed
+    console.log(`Issue ${issue._id} feedback: ${req.body.feedback}`);
+    // You can also store in a database if needed
+  }
+
+  res.json({ message: 'Feedback received', success: true });
+});
+
 // @desc    Delete issue
 // @route   DELETE /api/issues/:id
 // @access  Private/Admin
@@ -288,8 +333,9 @@ const deleteIssue = asyncHandler(async (req, res) => {
     throw new Error('Not authorized to delete this issue');
   }
 
-  await issue.remove();
-  res.json({ message: 'Issue removed' });
+  // Use findByIdAndDelete instead of remove() for newer Mongoose versions
+  await Issue.findByIdAndDelete(req.params.id);
+  res.json({ message: 'Issue removed', success: true });
 });
 
 // @desc    Upvote an issue
@@ -442,13 +488,14 @@ const getDepartmentIssues = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
-  createIssue,
   getIssues,
   getIssueById,
+  createIssue,
   updateIssue,
   deleteIssue,
   upvoteIssue,
   downvoteIssue,
   getUserIssues,
-  getDepartmentIssues
+  getDepartmentIssues,
+  addFeedback
 };

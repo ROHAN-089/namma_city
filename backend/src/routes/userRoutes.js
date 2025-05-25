@@ -11,10 +11,10 @@ const {
   deleteUser
 } = require('../controllers/userController');
 const { protect, admin } = require('../middleware/authMiddleware');
-const { uploadProfileImage } = require('../config/cloudinary');
+const { uploadProfileImage, uploadIdProof } = require('../config/cloudinary');
 
 // Public routes
-router.post('/', registerUser);
+router.post('/', uploadIdProof.single('idProof'), registerUser);
 router.post('/login', loginUser);
 
 // Protected routes

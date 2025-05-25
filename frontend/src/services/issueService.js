@@ -79,44 +79,115 @@ export const createIssue = async (issueData) => {
 
 // Update issue
 export const updateIssue = async (issueId, issueData) => {
-  // Handle form data for image upload
-  const formData = new FormData();
+  // Check if this is a simple status update (no files involved)
 
-  // Append all issue data
-  Object.keys(issueData).forEach(key => {
-    if (key === 'location') {
-      formData.append('location[type]', 'Point');
-      // Use the coordinates directly from the location object
-      formData.append('location[coordinates][0]', issueData.location.coordinates[0]); // longitude
-      formData.append('location[coordinates][1]', issueData.location.coordinates[1]); // latitude
-      formData.append('location[address]', issueData.location.address);
-    } else if (key !== 'images') {
-      formData.append(key, issueData[key]);
+  try {
+    // Check if we're updating issue status only
+    if (issueData.status && !issueData.images) {
+      const statusMap = {
+        'Open': 'reported',
+        'In Progress': 'in_progress', 
+        'Resolved': 'resolved'
+      };
+
+      // Make sure we're using the correct field names expected by the backend
+      const updatePayload = {
+        status: statusMap[issueData.status] || 'reported', // Default to 'reported' if not found
+        statusNote: issueData.statusNote || issueData.comment || ""
+      };
+      
+      // Log what we're sending to help with debugging
+      console.log('Sending status update payload:', updatePayload);
+      
+      const response = await api.put(`/issues/${issueId}`, updatePayload, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log('Issue update response:', response.data);
+      return response.data;
     }
-  });
+    
+    // For updates with files, use FormData
+    const formData = new FormData();
 
-  // Append new images if available
-  if (issueData.images && issueData.images.length > 0) {
-    issueData.images.forEach(image => {
-      if (image instanceof File) {
-        formData.append('images', image);
+    // Append all issue data
+    Object.keys(issueData).forEach(key => {
+      if (key === 'location' && issueData.location && typeof issueData.location === 'object') {
+        formData.append('location[type]', 'Point');
+        // Make sure the coordinates exist before trying to access them
+        if (issueData.location.coordinates) {
+          formData.append('location[coordinates][0]', issueData.location.coordinates[0]); // longitude
+          formData.append('location[coordinates][1]', issueData.location.coordinates[1]); // latitude
+        }
+        if (issueData.location.address) {
+          formData.append('location[address]', issueData.location.address);
+        }
+      } else if (key !== 'images') {
+        formData.append(key, issueData[key]);
       }
     });
-  }
 
-  const response = await api.put(`/issues/${issueId}`, formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data'
+    // Append new images if available
+    if (issueData.images && issueData.images.length > 0) {
+      issueData.images.forEach(image => {
+        if (image instanceof File) {
+          formData.append('images', image);
+        }
+      });
     }
-  });
 
-  return response.data;
+    console.log('Sending form data update');
+    const response = await api.put(`/issues/${issueId}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error('Error updating issue:', error);
+    if (error.response) {
+      console.error('Error response:', error.response.data);
+      throw new Error(error.response.data.message || 'Failed to update issue');
+    }
+    throw error;
+  }
 };
 
 // Delete issue
 export const deleteIssue = async (issueId) => {
   const response = await api.delete(`/issues/${issueId}`);
   return response.data;
+};
+
+// Verify and close a resolved issue (for issue creators)
+export const verifyAndCloseIssue = async (issueId, feedback = '') => {
+  try {
+    console.log(`Verifying and closing issue ${issueId} with feedback: ${feedback}`);
+    
+    // Since DELETE requests don't always support request bodies in all environments,
+    // let's first update the issue with the feedback, then delete it
+    if (feedback) {
+      await api.put(`/issues/${issueId}/feedback`, {
+        feedback: feedback,
+        verifiedByReporter: true
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+    }
+    
+    // Now delete the issue
+    const response = await api.delete(`/issues/${issueId}`);
+    
+    return { success: true, message: 'Issue closed successfully', data: response.data };
+  } catch (error) {
+    console.error('Error verifying and closing issue:', error);
+    throw new Error(error.response?.data?.message || 'Failed to close issue. Please try again.');
+  }
 };
 
 // Upvote/Remove upvote for an issue
@@ -149,8 +220,16 @@ export const getDepartmentIssues = async (filters = {}) => {
   });
 
   const queryString = queryParams.toString();
+  // The correct endpoint based on the backend route
   const url = queryString ? `/issues/department/issues?${queryString}` : '/issues/department/issues';
 
-  const response = await api.get(url);
-  return response.data;
+  try {
+    console.log('Fetching department issues from:', url);
+    const response = await api.get(url);
+    console.log('Department issues fetched:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching department issues:', error);
+    throw error;
+  }
 };

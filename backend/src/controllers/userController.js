@@ -5,6 +5,9 @@ const generateToken = require('../utils/generateToken');
 
 
 const registerUser = asyncHandler(async (req, res) => {
+  console.log('Request body:', req.body);
+  console.log('Request file:', req.file);
+  
   const { name, email, password, role, phoneNumber, city, department } = req.body;
 
   // Check if user already exists
@@ -13,6 +16,17 @@ const registerUser = asyncHandler(async (req, res) => {
   if (userExists) {
     res.status(400);
     throw new Error('User already exists');
+  }
+  
+  // Handle ID proof file for department registration
+  let idProofPath = null;
+  if (req.file) {
+    idProofPath = req.file.path;
+    console.log('ID proof file received and processed:', req.file.path);
+  } else if (role === 'department') {
+    console.log('Warning: No ID proof file received for department registration');
+    // If no file but role is department, provide a default value to pass validation
+    idProofPath = 'pending_verification';
   }
 
   // Handle city data - can be either a city name or an ObjectId
@@ -62,6 +76,7 @@ const registerUser = asyncHandler(async (req, res) => {
     phoneNumber,
     city: cityId,
     department,
+    idProof: idProofPath, // Add ID proof path if provided
   });
 
   if (user) {
