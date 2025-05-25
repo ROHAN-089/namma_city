@@ -12,6 +12,7 @@ import MunicipalityDashboard from './pages/MunicipalityDashboard/MunicipalityDas
 import Profile from './pages/Profile/Profile';
 import PrivateRoute from './components/PrivateRoute/PrivateRoute';
 import RoleBasedRoute from './components/RoleBasedRoute/RoleBasedRoute';
+import Chatbot from './components/Chatbot/Chatbot';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -78,6 +79,7 @@ function App() {
           </main>
           <Footer />
           <ToastContainer position="bottom-right" />
+          <Chatbot />
         </div>
       </Router>
     </AuthProvider>

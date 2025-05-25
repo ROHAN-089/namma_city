@@ -402,16 +402,26 @@ const IssueForm = () => {
               <label htmlFor="images" className="block text-gray-700 text-sm font-medium mb-2">
                 Upload Images* (Max 5 images, 5MB each)
               </label>
-              <input
-                id="images"
-                name="images"
-                type="file"
-                accept="image/*"
-                multiple
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                onChange={handleImageChange}
-                required
-              />
+              <div className="relative">
+                <label htmlFor="images" className="flex items-center justify-center w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 cursor-pointer">
+                  Choose Files
+                </label>
+                <input
+                  id="images"
+                  name="images"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  onChange={handleImageChange}
+                  required
+                />
+              </div>
+              {formData.images.length > 0 && (
+                <p className="mt-2 text-sm text-gray-600">
+                  {formData.images.length} {formData.images.length === 1 ? 'file' : 'files'} selected
+                </p>
+              )}
               {imagePreview && (
                 <div className="mt-2">
                   <img

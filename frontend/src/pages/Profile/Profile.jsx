@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-toastify';
-import { FaUser, FaEnvelope, FaPhone, FaCity, FaBuilding } from 'react-icons/fa';
+import { FaUser, FaEnvelope, FaPhone, FaCity, FaBuilding, FaMedal, FaClipboardList } from 'react-icons/fa';
+import { getUserIssues } from '../../services/issueService';
 import defaultProfilePic from '../../assets/default-profile.svg';
 
 const Profile = () => {
@@ -17,6 +18,9 @@ const Profile = () => {
   });
   const [profileImage, setProfileImage] = useState(null);
   const [profileImagePreview, setProfileImagePreview] = useState(null);
+  const [userIssues, setUserIssues] = useState([]);
+  const [heroPoints, setHeroPoints] = useState(0);
+  const [isLoadingIssues, setIsLoadingIssues] = useState(false);
 
   // Load user data
   useEffect(() => {
@@ -30,6 +34,36 @@ const Profile = () => {
       });
     }
   }, [user]);
+  
+  // Fetch user issues and calculate hero points
+  useEffect(() => {
+    const fetchUserIssues = async () => {
+      if (isAuthenticated && user) {
+        try {
+          setIsLoadingIssues(true);
+          // Fetch all user issues (set a higher limit to get all)
+          const response = await getUserIssues(1, 100); 
+          
+          // Check if response has the expected structure
+          const issues = response.issues || response;
+          
+          // Store the issues
+          setUserIssues(Array.isArray(issues) ? issues : []);
+          
+          // Calculate hero points (10 points per issue)
+          const points = Array.isArray(issues) ? issues.length * 10 : 0;
+          setHeroPoints(points);
+        } catch (error) {
+          console.error('Error fetching user issues:', error);
+          toast.error('Failed to load user issues');
+        } finally {
+          setIsLoadingIssues(false);
+        }
+      }
+    };
+    
+    fetchUserIssues();
+  }, [isAuthenticated, user]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -219,7 +253,7 @@ const Profile = () => {
                   {user?.role === 'department' && (
                     <>
                       <div className="mb-4">
-                        <label className="text-gray-700 text-sm font-medium mb-2 flex items-center">
+                        <label className="flex items-center text-gray-700 text-sm font-medium mb-2">
                           <FaCity className="mr-2" />
                           City
                         </label>
@@ -271,6 +305,71 @@ const Profile = () => {
               </div>
             </div>
           </form>
+          
+          {/* Hero Points Section - Available for all users */}
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-xl mt-8 border border-blue-200 shadow-md">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="flex items-center text-indigo-700 font-bold text-xl">
+                <FaMedal className="mr-3 text-yellow-500 text-2xl" />
+                Hero Points Dashboard
+              </h3>
+              
+              {/* Hero Level Badge */}
+              <div className="bg-indigo-600 text-white px-3 py-1 rounded-full text-sm font-bold">
+                Level {Math.floor(heroPoints / 50) + 1}
+              </div>
+            </div>
+            
+            {/* Points Display */}
+            <div className="bg-white rounded-lg p-4 mb-4 shadow-inner">
+              <div className="flex justify-between items-center mb-3">
+                <div className="flex items-center">
+                  <div className="bg-blue-100 p-2 rounded-full mr-3">
+                    <FaClipboardList className="text-blue-600 text-lg" />
+                  </div>
+                  <span className="text-gray-700 font-medium">Total Reports</span>
+                </div>
+                <span className="font-bold text-xl text-green-600">{isLoadingIssues ? 'Loading...' : userIssues.length}</span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <div className="flex items-center">
+                  <div className="bg-yellow-100 p-2 rounded-full mr-3">
+                    <FaMedal className="text-yellow-600 text-lg" />
+                  </div>
+                  <span className="text-gray-700 font-medium">Hero Points</span>
+                </div>
+                <span className="font-bold text-2xl text-indigo-600">{isLoadingIssues ? 'Loading...' : heroPoints}</span>
+              </div>
+            </div>
+            
+            {/* Progress Bar */}
+            <div className="mb-4">
+              <div className="flex justify-between text-xs text-gray-600 mb-1">
+                <span>Progress to Next Level</span>
+                <span>{heroPoints % 50}/50 points</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                <div 
+                  className="bg-gradient-to-r from-blue-500 to-indigo-600 h-2.5 rounded-full" 
+                  style={{ width: `${(heroPoints % 50) * 2}%` }}
+                ></div>
+              </div>
+            </div>
+            
+            {/* Motivational Message */}
+            <div className="bg-indigo-100 rounded-lg p-3 text-sm text-indigo-800 flex items-start border border-indigo-200">
+              <div className="flex-shrink-0 mr-2 mt-0.5">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-500" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-medium">Earn 10 points for each issue you report!</p>
+                <p className="mt-1">Reach level 5 to unlock special citizen badges and recognition.</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
