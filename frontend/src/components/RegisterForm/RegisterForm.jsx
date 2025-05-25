@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { indianCities } from '../../data/indianCities';
 
 const RegisterForm = () => {
   const [formData, setFormData] = useState({
@@ -9,6 +10,7 @@ const RegisterForm = () => {
     password: '',
     confirmPassword: '',
     role: 'citizen', // Default role
+    city: '', // Added city field
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -56,7 +58,8 @@ const RegisterForm = () => {
         name: formData.name,
         email: formData.email,
         password: formData.password,
-        role: formData.role
+        role: formData.role,
+        city: formData.city // Added city to the userData object
       };
       
       const result = await register(userData);
@@ -151,7 +154,28 @@ const RegisterForm = () => {
             required
           />
         </div>
-        
+
+        <div className="mb-4">
+          <label htmlFor="city" className="block text-gray-700 text-sm font-medium mb-2">
+            Your City
+          </label>
+          <select
+            id="city"
+            name="city"
+            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={formData.city}
+            onChange={handleChange}
+            required
+          >
+            <option value="">Select your city</option>
+            {indianCities.map((city, index) => (
+              <option key={index} value={city.name}>
+                {city.name}, {city.state}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500 mt-1">This helps us connect you with issues in your area</p>
+        </div>
         
         <div className="mb-6">
           <button

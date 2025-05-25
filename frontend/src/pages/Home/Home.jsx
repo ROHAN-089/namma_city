@@ -32,15 +32,25 @@ const Home = () => {
     { id: 'others', name: 'Others' }
   ];
 
+  // Set user's city as selected city when user logs in
+  useEffect(() => {
+    if (user && user.city && user.city.name) {
+      setSelectedCity(user.city.name);
+    }
+  }, [user]);
+
   // Load issues and cities data
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
 
-        // Fetch real issues from the backend
+        // Fetch all issues from the backend without filtering by city
+        // We'll filter on the client side based on selectedCity
         const issuesResponse = await getAllIssues();
         const fetchedIssues = issuesResponse.issues || [];
+        
+        console.log('Fetched issues:', fetchedIssues.length);
 
         const formattedIssues = fetchedIssues.map(issue => ({
           ...issue,
@@ -80,15 +90,24 @@ const Home = () => {
     };
 
     fetchData();
-  }, []);
+  }, [user]);
 
   // Filter and sort issues based on selected filters
   useEffect(() => {
+    console.log('Filtering issues, total count:', issues.length);
+    console.log('Selected city:', selectedCity);
+    
     let result = [...issues];
 
     // Filter by city
     if (selectedCity) {
-      result = result.filter(issue => issue.city === selectedCity);
+      result = result.filter(issue => {
+        // Handle different city formats (string name or object with name property)
+        const issueCity = typeof issue.city === 'string' ? issue.city : issue.city?.name;
+        const matches = issueCity === selectedCity;
+        return matches;
+      });
+      console.log('After city filtering:', result.length);
     }
 
     // Filter by category
@@ -146,6 +165,9 @@ const Home = () => {
     setSelectedCategory('');
     setSearchQuery('');
     setSortBy('latest');
+    // Force a re-render by re-setting the filtered issues
+    setFilteredIssues([...issues]);
+    console.log('Filters reset, showing all issues:', issues.length);
   };
 
   return (
@@ -293,12 +315,72 @@ const Home = () => {
 
       {/* Main Content */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-gray-50">
-        <div className="text-center mb-12">
+        <div className="text-center mb-6">
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Recent Issues</h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             Browse through the latest issues reported in your city
           </p>
         </div>
+        
+        {user?.city?.name && (
+          <div className="flex justify-center mb-8 gap-4">
+            <button 
+              onClick={() => {
+                // First clear any existing filters
+                setSelectedCategory('');
+                setSearchQuery('');
+                setSortBy('latest');
+                
+                // Then set the city filter
+                setSelectedCity(user.city.name);
+                
+                // Manually filter the issues for emergency fix
+                const cityIssues = issues.filter(issue => {
+                  const issueCity = typeof issue.city === 'string' ? issue.city : issue.city?.name;
+                  return issueCity === user.city.name;
+                });
+                
+                console.log(`Filtered to ${cityIssues.length} issues in ${user.city.name}`);
+                setFilteredIssues(cityIssues);
+              }}
+              className={`flex items-center px-6 py-3 rounded-lg shadow-sm transition-all ${selectedCity === user.city.name 
+                ? 'bg-blue-600 text-white font-medium shadow-md'
+                : 'bg-white text-blue-600 hover:bg-blue-50 border border-blue-200'}`}
+            >
+              <FaMapMarkerAlt className="mr-2" /> 
+              <span>Show Issues in {user.city.name}</span>
+              {selectedCity === user.city.name && (
+                <span className="ml-2 bg-blue-500 text-xs px-2 py-0.5 rounded-full">
+                  Active
+                </span>
+              )}
+            </button>
+            
+            <button 
+              onClick={() => {
+                resetFilters();
+                // Direct emergency fix to ensure issues are displayed
+                setTimeout(() => {
+                  if (issues.length > 0 && filteredIssues.length === 0) {
+                    console.log('Emergency fix: Manually setting filtered issues');
+                    setFilteredIssues([...issues]);
+                  }
+                }, 100);
+              }}
+              className={`flex items-center px-6 py-3 rounded-lg shadow-sm transition-all ${selectedCity === '' 
+                ? 'bg-blue-600 text-white font-medium shadow-md'
+                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'}`}
+            >
+              <FaBuilding className="mr-2" /> 
+              <span>Show All Cities</span>
+              {selectedCity === '' && (
+                <span className="ml-2 bg-blue-500 text-xs px-2 py-0.5 rounded-full">
+                  Active
+                </span>
+              )}
+            </button>
+          </div>
+        )}
         
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Filters Sidebar */}
@@ -333,39 +415,7 @@ const Home = () => {
                 </div>
               </div>
 
-              {/* City Filter */}
-              <div className="mb-6">
-                <label className="text-sm font-medium text-gray-700 mb-2 flex items-center">
-                  <FaBuilding className="mr-2" />
-                  City
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FaBuilding className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <select
-                    className="w-full pl-10 pr-8 py-2.5 appearance-none bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-gray-300 transition-all text-gray-700"
-                    value={selectedCity}
-                    onChange={(e) => setSelectedCity(e.target.value)}
-                  >
-                    <option value="" className="text-gray-500">All Cities</option>
-                    {cities.map((city) => (
-                      <option
-                        key={city.id}
-                        value={city.name}
-                        className="py-2 px-4 text-gray-700 hover:bg-gray-100"
-                      >
-                        {city.name}, {city.state}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
+              {/* Other filters can remain here */}
 
               {/* Category Filter */}
               <div className="mb-6">

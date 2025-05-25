@@ -1,5 +1,6 @@
 const asyncHandler = require('express-async-handler');
 const User = require('../models/User');
+const City = require('../models/City');
 const generateToken = require('../utils/generateToken');
 
 
@@ -14,6 +15,44 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new Error('User already exists');
   }
 
+  // Handle city data - can be either a city name or an ObjectId
+  let cityId = null;
+  
+  if (city) {
+    if (typeof city === 'string') {
+      // Find or create the city based on name
+      let cityData = await City.findOne({ name: { $regex: new RegExp('^' + city.split(',')[0].trim() + '$', 'i') } });
+      
+      if (!cityData) {
+        // Extract state from city string if it contains comma (e.g., "Mumbai, Maharashtra")
+        let state = 'Unknown';
+        let cityName = city;
+        
+        if (city.includes(',')) {
+          const parts = city.split(',');
+          cityName = parts[0].trim();
+          state = parts.length > 1 ? parts[1].trim() : 'Unknown';
+        }
+        
+        // Create a new city if it doesn't exist
+        cityData = await City.create({
+          name: cityName,
+          state: state,
+          country: 'India',
+          coordinates: {
+            type: 'Point',
+            coordinates: [77.0, 20.0] // Default coordinates for India
+          }
+        });
+      }
+      
+      cityId = cityData._id;
+    } else {
+      // If it's already an ObjectId, use it directly
+      cityId = city;
+    }
+  }
+
   // Create new user
   const user = await User.create({
     name,
@@ -21,21 +60,24 @@ const registerUser = asyncHandler(async (req, res) => {
     password,
     role,
     phoneNumber,
-    city,
+    city: cityId,
     department,
   });
 
   if (user) {
+    // Populate city data before returning
+    const populatedUser = await User.findById(user._id).populate('city', 'name state');
+    
     res.status(201).json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      phoneNumber: user.phoneNumber,
-      city: user.city,
-      department: user.department,
-      profileImage: user.profileImage,
-      token: generateToken(user._id),
+      _id: populatedUser._id,
+      name: populatedUser.name,
+      email: populatedUser.email,
+      role: populatedUser.role,
+      phoneNumber: populatedUser.phoneNumber,
+      city: populatedUser.city,
+      department: populatedUser.department,
+      profileImage: populatedUser.profileImage,
+      token: generateToken(populatedUser._id),
     });
   } else {
     res.status(400);
@@ -51,16 +93,21 @@ const loginUser = asyncHandler(async (req, res) => {
   const user = await User.findOne({ email }).select('+password');
 
   if (user && (await user.comparePassword(password))) {
+    // Populate city information
+    const populatedUser = await User.findById(user._id)
+      .populate('city', 'name state country coordinates')
+      .select('-password');
+
     res.json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      phoneNumber: user.phoneNumber,
-      city: user.city,
-      department: user.department,
-      profileImage: user.profileImage,
-      token: generateToken(user._id),
+      _id: populatedUser._id,
+      name: populatedUser.name,
+      email: populatedUser.email,
+      role: populatedUser.role,
+      phoneNumber: populatedUser.phoneNumber,
+      city: populatedUser.city,
+      department: populatedUser.department,
+      profileImage: populatedUser.profileImage,
+      token: generateToken(populatedUser._id),
     });
   } else {
     res.status(401);

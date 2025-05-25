@@ -1,7 +1,12 @@
 import api from './api';
 
-export const getAllIssues = async (filters = {}) => {
+export const getAllIssues = async (cityId = null, filters = {}) => {
   const queryParams = new URLSearchParams();
+
+  // Add cityId to filters if provided
+  if (cityId) {
+    filters.city = cityId;
+  }
 
   Object.keys(filters).forEach(key => {
     if (filters[key] !== undefined && filters[key] !== null && filters[key] !== '') {
