@@ -2,7 +2,6 @@ Here’s a suggested **README.md** for your *namma\_city* project. You can edit 
 
 ---
 
-```markdown
 # Namma City
 
 [Namma City Live](https://namma-city.vercel.app)  
@@ -49,7 +48,7 @@ Here are some of the features ‒ can be dummy or real depending on what is impl
 
 ## 📂 Project Structure
 
-```
+
 
 namma\_city/
 ├── frontend/       # Frontend code (UI components, CSS, pages)
@@ -57,7 +56,6 @@ namma\_city/
 ├── README.md       # Project documentation
 └── …                # Other config & assets
 
-````
 
 ---
 
@@ -65,11 +63,10 @@ namma\_city/
 
 These steps assume you want to run it locally.
 
-1. Clone the repository  
-   ```bash
+1. Clone the repository     
    git clone https://github.com/ROHAN-089/namma_city.git
    cd namma_city
-````
+
 
 2. Install dependencies
 
