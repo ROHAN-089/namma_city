@@ -1,6 +1,4 @@
-Here’s a suggested **README.md** for your *namma\_city* project. You can edit the descriptions if some details are off.
 
----
 
 # Namma City
 
@@ -64,8 +62,9 @@ namma\_city/
 These steps assume you want to run it locally.
 
 1. Clone the repository     
-   git clone https://github.com/ROHAN-089/namma_city.git
+  ``` git clone https://github.com/ROHAN-089/namma_city.git
    cd namma_city
+```
 
 
 2. Install dependencies
