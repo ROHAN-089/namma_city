@@ -93,7 +93,53 @@ const issueSchema = new mongoose.Schema({
   }],
   closedAt: Date,
   resolvedAt: Date,
-  estimatedCompletionTime: Date
+  estimatedCompletionTime: Date,
+  
+  // SLA Management Fields
+  slaDeadline: {
+    type: Date,
+    default: function() {
+      // Calculate SLA deadline based on priority
+      const slaHours = {
+        'urgent': 24,
+        'high': 72,    // 3 days
+        'medium': 168, // 7 days
+        'low': 336     // 14 days
+      };
+      const hours = slaHours[this.priority] || slaHours['medium'];
+      return new Date(Date.now() + (hours * 60 * 60 * 1000));
+    }
+  },
+  slaBreached: {
+    type: Boolean,
+    default: false
+  },
+  escalationLevel: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 3
+  },
+  escalationHistory: [{
+    level: {
+      type: Number,
+      required: true
+    },
+    escalatedAt: {
+      type: Date,
+      default: Date.now
+    },
+    escalatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    reason: String,
+    action: String
+  }],
+  lastEscalationCheck: {
+    type: Date,
+    default: Date.now
+  }
 }, {
   timestamps: true,
   toJSON: { virtuals: true },
@@ -116,6 +162,68 @@ issueSchema.methods.calculateResolutionTime = function () {
     return this.resolvedAt - this.createdAt; // Time in milliseconds
   }
   return null;
+};
+
+// Method to calculate SLA progress percentage
+issueSchema.methods.calculateSLAProgress = function () {
+  const now = new Date();
+  const created = this.createdAt;
+  const deadline = this.slaDeadline;
+  
+  if (!created || !deadline) return 0;
+  
+  const totalTime = deadline - created;
+  const elapsedTime = now - created;
+  
+  return Math.min(Math.max((elapsedTime / totalTime) * 100, 0), 100);
+};
+
+// Method to check if SLA is breached
+issueSchema.methods.isSLABreached = function () {
+  return new Date() > this.slaDeadline;
+};
+
+// Method to get time remaining until SLA deadline
+issueSchema.methods.getTimeRemaining = function () {
+  const now = new Date();
+  const deadline = this.slaDeadline;
+  
+  if (!deadline) return null;
+  
+  const remaining = deadline - now;
+  return remaining > 0 ? remaining : 0;
+};
+
+// Method to get escalation level based on SLA progress
+issueSchema.methods.getEscalationLevel = function () {
+  const progress = this.calculateSLAProgress();
+  
+  if (progress >= 100) return 3; // SLA breached
+  if (progress >= 80) return 2;  // Urgent
+  if (progress >= 50) return 1;  // Warning
+  return 0; // Normal
+};
+
+// Method to escalate issue
+issueSchema.methods.escalate = function (escalatedBy, reason, action) {
+  const newLevel = this.getEscalationLevel();
+  
+  if (newLevel > this.escalationLevel) {
+    this.escalationLevel = newLevel;
+    this.escalationHistory.push({
+      level: newLevel,
+      escalatedBy: escalatedBy,
+      reason: reason || `Auto-escalated to level ${newLevel}`,
+      action: action || 'Automatic escalation'
+    });
+    
+    if (newLevel === 3) {
+      this.slaBreached = true;
+    }
+  }
+  
+  this.lastEscalationCheck = new Date();
+  return this;
 };
 
 // Pre-save hook to update statusHistory automatically

@@ -487,6 +487,126 @@ const getDepartmentIssues = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Get SLA statistics for department
+// @route   GET /api/issues/sla/statistics
+// @access  Private/Department
+const getSLAStatistics = asyncHandler(async (req, res) => {
+  const slaManager = require('../utils/slaManager');
+  
+  try {
+    const departmentId = req.user.role === 'department' ? req.user._id : null;
+    const stats = await slaManager.getSLAStatistics(departmentId);
+    
+    res.json(stats);
+  } catch (error) {
+    console.error('Error getting SLA statistics:', error);
+    res.status(500).json({ message: 'Error fetching SLA statistics' });
+  }
+});
+
+// @desc    Get overdue issues
+// @route   GET /api/issues/sla/overdue
+// @access  Private/Department
+const getOverdueIssues = asyncHandler(async (req, res) => {
+  const slaManager = require('../utils/slaManager');
+  
+  try {
+    const departmentId = req.user.role === 'department' ? req.user._id : null;
+    const overdueIssues = await slaManager.getOverdueIssues(departmentId);
+    
+    res.json(overdueIssues);
+  } catch (error) {
+    console.error('Error getting overdue issues:', error);
+    res.status(500).json({ message: 'Error fetching overdue issues' });
+  }
+});
+
+// @desc    Check and escalate issues
+// @route   POST /api/issues/sla/escalate
+// @access  Private/Department
+const checkAndEscalateIssues = asyncHandler(async (req, res) => {
+  const slaManager = require('../utils/slaManager');
+  
+  try {
+    const departmentId = req.user.role === 'department' ? req.user._id : null;
+    const results = await slaManager.checkAndEscalateIssues(departmentId);
+    
+    res.json(results);
+  } catch (error) {
+    console.error('Error checking and escalating issues:', error);
+    res.status(500).json({ message: 'Error checking escalations' });
+  }
+});
+
+// @desc    Update SLA deadline for an issue
+// @route   PUT /api/issues/:id/sla
+// @access  Private/Department
+const updateSLADeadline = asyncHandler(async (req, res) => {
+  const slaManager = require('../utils/slaManager');
+  
+  try {
+    const issue = await Issue.findById(req.params.id);
+    
+    if (!issue) {
+      res.status(404);
+      throw new Error('Issue not found');
+    }
+    
+    // Check authorization
+    if (req.user.role !== 'admin' && req.user.role !== 'department') {
+      res.status(403);
+      throw new Error('Not authorized to update SLA');
+    }
+    
+    const { priority } = req.body;
+    
+    if (priority && priority !== issue.priority) {
+      const newDeadline = slaManager.updateSLADeadline(issue, priority);
+      issue.slaDeadline = newDeadline;
+      issue.priority = priority;
+      
+      await issue.save();
+    }
+    
+    res.json(issue);
+  } catch (error) {
+    console.error('Error updating SLA deadline:', error);
+    res.status(500).json({ message: 'Error updating SLA deadline' });
+  }
+});
+
+// @desc    Get SLA progress for an issue
+// @route   GET /api/issues/:id/sla
+// @access  Private
+const getSLAPgress = asyncHandler(async (req, res) => {
+  try {
+    const issue = await Issue.findById(req.params.id);
+    
+    if (!issue) {
+      res.status(404);
+      throw new Error('Issue not found');
+    }
+    
+    const slaManager = require('../utils/slaManager');
+    
+    const progress = slaManager.calculateSLAProgress(issue.createdAt, issue.slaDeadline);
+    const escalationLevel = slaManager.getEscalationLevel(progress);
+    const timeRemaining = slaManager.getTimeRemaining(issue.slaDeadline);
+    
+    res.json({
+      progress,
+      escalationLevel,
+      timeRemaining,
+      timeRemainingFormatted: slaManager.formatTimeRemaining(timeRemaining),
+      slaBreached: issue.slaBreached,
+      escalationHistory: issue.escalationHistory
+    });
+  } catch (error) {
+    console.error('Error getting SLA progress:', error);
+    res.status(500).json({ message: 'Error fetching SLA progress' });
+  }
+});
+
 module.exports = {
   getIssues,
   getIssueById,
@@ -497,5 +617,10 @@ module.exports = {
   downvoteIssue,
   getUserIssues,
   getDepartmentIssues,
-  addFeedback
+  addFeedback,
+  getSLAStatistics,
+  getOverdueIssues,
+  checkAndEscalateIssues,
+  updateSLADeadline,
+  getSLAPgress
 };

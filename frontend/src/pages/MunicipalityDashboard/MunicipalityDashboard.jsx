@@ -2,8 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import IssueCard from '../../components/IssueCard/IssueCard';
+import SLATimer from '../../components/SLATimer/SLATimer';
 import { motion } from 'framer-motion';
-import { FaClipboardList, FaExclamationCircle, FaSpinner, FaCheckCircle, FaClock, FaChartLine, FaFilter } from 'react-icons/fa';
+import { 
+  FaClipboardList, 
+  FaExclamationCircle, 
+  FaSpinner, 
+  FaCheckCircle, 
+  FaClock, 
+  FaChartLine, 
+  FaFilter,
+  FaExclamationTriangle,
+  FaTimesCircle,
+  FaBell
+} from 'react-icons/fa';
 import { getDepartmentIssues } from '../../services/issueService';
 
 const MunicipalityDashboard = () => {
@@ -17,6 +29,13 @@ const MunicipalityDashboard = () => {
     resolved: 0,
     avgResolutionTime: '0 days'
   });
+  const [slaStats, setSlaStats] = useState({
+    onTime: 0,
+    atRisk: 0,
+    breached: 0,
+    avgProgress: 0
+  });
+  const [overdueIssues, setOverdueIssues] = useState([]);
   const [activeFilter, setActiveFilter] = useState('all');
   const [sortBy, setSortBy] = useState('priority');
   
@@ -51,6 +70,52 @@ const MunicipalityDashboard = () => {
             resolved: resolvedIssues,
             avgResolutionTime: '3.2 days' // This would need real calculation based on real data
           });
+
+          // Calculate SLA statistics
+          const calculateSLAStats = (issues) => {
+            let onTime = 0, atRisk = 0, breached = 0, totalProgress = 0;
+            const overdue = [];
+
+            issues.forEach(issue => {
+              if (!issue.slaDeadline || !issue.createdAt) return;
+
+              const now = new Date();
+              const created = new Date(issue.createdAt);
+              const deadline = new Date(issue.slaDeadline);
+              
+              const totalTime = deadline - created;
+              const elapsedTime = now - created;
+              const progress = Math.min(Math.max((elapsedTime / totalTime) * 100, 0), 100);
+              
+              totalProgress += progress;
+
+              if (progress >= 100) {
+                breached++;
+                overdue.push(issue);
+              } else if (progress >= 50) {
+                atRisk++;
+              } else {
+                onTime++;
+              }
+            });
+
+            return {
+              onTime,
+              atRisk,
+              breached,
+              avgProgress: issues.length > 0 ? (totalProgress / issues.length) : 0,
+              overdue
+            };
+          };
+
+          const slaData = calculateSLAStats(response.issues);
+          setSlaStats({
+            onTime: slaData.onTime,
+            atRisk: slaData.atRisk,
+            breached: slaData.breached,
+            avgProgress: slaData.avgProgress
+          });
+          setOverdueIssues(slaData.overdue);
         } else {
           console.error('No issues data returned from API');
           setAssignedIssues([]);
@@ -91,8 +156,35 @@ const MunicipalityDashboard = () => {
     let result = [...assignedIssues];
 
     if (activeFilter !== 'all') {
-      result = result.filter(issue => 
-        issue.status && issue.status.toLowerCase() === activeFilter.toLowerCase());
+      // Handle SLA-based filters
+      if (activeFilter.startsWith('sla-')) {
+        result = result.filter(issue => {
+          if (!issue.slaDeadline || !issue.createdAt) return false;
+          
+          const now = new Date();
+          const created = new Date(issue.createdAt);
+          const deadline = new Date(issue.slaDeadline);
+          
+          const totalTime = deadline - created;
+          const elapsedTime = now - created;
+          const progress = Math.min(Math.max((elapsedTime / totalTime) * 100, 0), 100);
+          
+          switch (activeFilter) {
+            case 'sla-breached':
+              return progress >= 100;
+            case 'sla-at-risk':
+              return progress >= 50 && progress < 100;
+            case 'sla-on-time':
+              return progress < 50;
+            default:
+              return true;
+          }
+        });
+      } else {
+        // Handle regular status filters
+        result = result.filter(issue => 
+          issue.status && issue.status.toLowerCase() === activeFilter.toLowerCase());
+      }
     }
 
     // Then sort the filtered issues
@@ -112,6 +204,13 @@ const MunicipalityDashboard = () => {
         break;
       case 'latest':
         result.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        break;
+      case 'sla-deadline':
+        result.sort((a, b) => {
+          const aDeadline = a.slaDeadline ? new Date(a.slaDeadline) : new Date(0);
+          const bDeadline = b.slaDeadline ? new Date(b.slaDeadline) : new Date(0);
+          return aDeadline - bDeadline;
+        });
         break;
       default:
         break;
@@ -204,6 +303,88 @@ const MunicipalityDashboard = () => {
           </motion.div>
         </div>
 
+        {/* SLA Alerts Section */}
+        {(slaStats.breached > 0 || slaStats.atRisk > 0) && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="mb-8"
+          >
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-2">
+                  <FaBell className="text-orange-500" />
+                  <h3 className="text-lg font-semibold text-gray-800">SLA Alerts</h3>
+                </div>
+                <div className="text-sm text-gray-500">
+                  Avg Progress: {slaStats.avgProgress.toFixed(1)}%
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* On Time */}
+                <div className="flex items-center p-3 bg-green-50 rounded-lg border border-green-200">
+                  <div className="p-2 rounded-full bg-green-100 text-green-600 mr-3">
+                    <FaCheckCircle />
+                  </div>
+                  <div>
+                    <p className="text-sm text-green-700 font-medium">On Time</p>
+                    <p className="text-lg font-bold text-green-800">{slaStats.onTime}</p>
+                  </div>
+                </div>
+
+                {/* At Risk */}
+                <div className="flex items-center p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                  <div className="p-2 rounded-full bg-yellow-100 text-yellow-600 mr-3">
+                    <FaExclamationTriangle />
+                  </div>
+                  <div>
+                    <p className="text-sm text-yellow-700 font-medium">At Risk</p>
+                    <p className="text-lg font-bold text-yellow-800">{slaStats.atRisk}</p>
+                  </div>
+                </div>
+
+                {/* Breached */}
+                <div className="flex items-center p-3 bg-red-50 rounded-lg border border-red-200">
+                  <div className="p-2 rounded-full bg-red-100 text-red-600 mr-3">
+                    <FaTimesCircle />
+                  </div>
+                  <div>
+                    <p className="text-sm text-red-700 font-medium">Breached</p>
+                    <p className="text-lg font-bold text-red-800">{slaStats.breached}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Overdue Issues */}
+              {overdueIssues.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">
+                    Overdue Issues ({overdueIssues.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {overdueIssues.slice(0, 3).map((issue) => (
+                      <div key={issue._id} className="flex items-center justify-between p-2 bg-red-50 rounded border border-red-200">
+                        <div className="flex items-center space-x-2">
+                          <FaTimesCircle className="text-red-500 text-sm" />
+                          <span className="text-sm text-gray-700">{issue.title}</span>
+                        </div>
+                        <SLATimer issue={issue} compact={true} />
+                      </div>
+                    ))}
+                    {overdueIssues.length > 3 && (
+                      <p className="text-xs text-gray-500 text-center">
+                        +{overdueIssues.length - 3} more overdue issues
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+
         {/* Filters and Sorting */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
           <div className="mb-4 md:mb-0">
@@ -252,6 +433,46 @@ const MunicipalityDashboard = () => {
                 Resolved
               </button>
             </div>
+            
+            {/* SLA Filters */}
+            <div className="mt-3">
+              <h4 className="text-xs font-medium text-gray-600 mb-2">SLA Status</h4>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setActiveFilter('sla-breached')}
+                  className={`px-2 py-1 rounded-full text-xs ${
+                    activeFilter === 'sla-breached'
+                      ? 'bg-red-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <FaTimesCircle className="inline mr-1" />
+                  Breached
+                </button>
+                <button
+                  onClick={() => setActiveFilter('sla-at-risk')}
+                  className={`px-2 py-1 rounded-full text-xs ${
+                    activeFilter === 'sla-at-risk'
+                      ? 'bg-yellow-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <FaExclamationTriangle className="inline mr-1" />
+                  At Risk
+                </button>
+                <button
+                  onClick={() => setActiveFilter('sla-on-time')}
+                  className={`px-2 py-1 rounded-full text-xs ${
+                    activeFilter === 'sla-on-time'
+                      ? 'bg-green-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <FaCheckCircle className="inline mr-1" />
+                  On Time
+                </button>
+              </div>
+            </div>
           </div>
 
           <div>
@@ -267,6 +488,7 @@ const MunicipalityDashboard = () => {
               <option value="upvotes">Upvotes</option>
               <option value="latest">Latest</option>
               <option value="oldest">Oldest</option>
+              <option value="sla-deadline">SLA Deadline</option>
             </select>
           </div>
         </div>

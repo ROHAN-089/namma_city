@@ -10,7 +10,12 @@ const {
   downvoteIssue,
   getUserIssues,
   getDepartmentIssues,
-  addFeedback
+  addFeedback,
+  getSLAStatistics,
+  getOverdueIssues,
+  checkAndEscalateIssues,
+  updateSLADeadline,
+  getSLAPgress
 } = require('../controllers/issueController');
 const { protect, department, departmentOrAdmin } = require('../middleware/authMiddleware');
 const { uploadIssueImage } = require('../config/cloudinary');
@@ -32,5 +37,12 @@ router.put('/:id/feedback', protect, addFeedback);
 // User and department specific routes
 router.get('/user/issues', protect, getUserIssues);
 router.get('/department/issues', protect, departmentOrAdmin, getDepartmentIssues);
+
+// SLA Management routes
+router.get('/sla/statistics', protect, departmentOrAdmin, getSLAStatistics);
+router.get('/sla/overdue', protect, departmentOrAdmin, getOverdueIssues);
+router.post('/sla/escalate', protect, departmentOrAdmin, checkAndEscalateIssues);
+router.get('/:id/sla', protect, getSLAPgress);
+router.put('/:id/sla', protect, departmentOrAdmin, updateSLADeadline);
 
 module.exports = router;
