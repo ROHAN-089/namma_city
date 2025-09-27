@@ -1,117 +1,80 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { FaUserCircle, FaReply, FaPaperPlane, FaClock } from 'react-icons/fa';
-import { motion, AnimatePresence } from 'framer-motion';
+import { FaReply, FaPaperPlane, FaClock } from 'react-icons/fa';
+import { motion } from 'framer-motion';
 import defaultProfilePic from '../../assets/default-profile.svg';
-import { getCommentsByIssue, createComment } from '../../services/commentService';
+import { getCommentsByIssue, createComment as createCommentApi } from '../../services/commentService';
+
+const timeAgo = (date) => {
+  if (!date) return '';
+  const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+  let interval = seconds / 31536000;
+  if (interval > 1) return Math.floor(interval) + ' years ago';
+  interval = seconds / 2592000;
+  if (interval > 1) return Math.floor(interval) + ' months ago';
+  interval = seconds / 86400;
+  if (interval > 1) return Math.floor(interval) + ' days ago';
+  interval = seconds / 3600;
+  if (interval > 1) return Math.floor(interval) + ' hours ago';
+  interval = seconds / 60;
+  if (interval > 1) return Math.floor(interval) + ' minutes ago';
+  return Math.floor(seconds) + ' seconds ago';
+};
 
 const Comment = ({ comment, onReply }) => {
-  const timeAgo = (date) => {
-    const seconds = Math.floor((new Date() - new Date(date)) / 1000);
-
-    let interval = seconds / 31536000;
-    if (interval > 1) return Math.floor(interval) + ' years ago';
-
-    interval = seconds / 2592000;
-    if (interval > 1) return Math.floor(interval) + ' months ago';
-
-    interval = seconds / 86400;
-    if (interval > 1) return Math.floor(interval) + ' days ago';
-
-    interval = seconds / 3600;
-    if (interval > 1) return Math.floor(interval) + ' hours ago';
-
-    interval = seconds / 60;
-    if (interval > 1) return Math.floor(interval) + ' minutes ago';
-
-    return Math.floor(seconds) + ' seconds ago';
-  };
-
   return (
-    <motion.div
-      className="flex space-x-3 mb-4"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
+    <motion.div className="flex space-x-3 mb-4" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
       <div className="flex-shrink-0">
-        {comment.user.avatar ? (
-          <img
-            className="h-10 w-10 rounded-full"
-            src={comment.user.avatar}
-            alt={comment.user.name}
-          />
+        {comment.user?.profileImage ? (
+          <img className="h-10 w-10 rounded-full" src={comment.user.profileImage} alt={comment.user.name} />
         ) : (
-          <img
-            className="h-10 w-10 rounded-full"
-            src={defaultProfilePic}
-            alt={comment.user.name || 'User'}
-          />
+          <img className="h-10 w-10 rounded-full" src={defaultProfilePic} alt={comment.user?.name || 'User'} />
         )}
       </div>
+
       <div className="flex-grow">
         <div className="bg-gray-100 p-3 rounded-lg">
           <div className="flex justify-between items-start">
             <div>
-              <span className="font-medium text-gray-900">{comment.user.name}</span>
-              {comment.user.role === 'department' && (
-                <span className="ml-2 px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                  Department Official
-                </span>
+              <span className="font-medium text-gray-900">{comment.user?.name}</span>
+              {comment.user?.role === 'department' && (
+                <span className="ml-2 px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">Department Official</span>
               )}
             </div>
+
             <div className="text-xs text-gray-500 flex items-center">
               <FaClock className="mr-1" />
               {timeAgo(comment.createdAt)}
             </div>
           </div>
-          <p className="mt-1 text-gray-800">{comment.text}</p>
+
+          <div className="mt-2 text-gray-800 whitespace-pre-wrap">{comment.text}</div>
+
+          <div className="mt-2 flex items-center space-x-4 text-sm text-gray-600">
+            <button onClick={() => onReply(comment)} className="flex items-center space-x-1 hover:text-blue-600">
+              <FaReply />
+              <span>Reply</span>
+            </button>
+          </div>
         </div>
 
-        <div className="mt-1 flex items-center pl-2">
-          <button
-            onClick={() => onReply(comment)}
-            className="text-xs text-gray-500 hover:text-blue-600 flex items-center"
-          >
-            <FaReply className="mr-1" />
-            Reply
-          </button>
-        </div>
-
+        {/* Replies */}
         {comment.replies && comment.replies.length > 0 && (
-          <div className="mt-3 ml-6 space-y-3">
-            {comment.replies.map((reply) => (
-              <div key={reply.id} className="flex space-x-3">
-                <div className="flex-shrink-0">
-                  {reply.user.avatar ? (
-                    <img
-                      className="h-8 w-8 rounded-full"
-                      src={reply.user.avatar}
-                      alt={reply.user.name}
-                    />
-                  ) : (
-                    <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                      <FaUserCircle className="text-blue-600 text-xl" />
-                    </div>
-                  )}
-                </div>
-                <div className="flex-grow">
-                  <div className="bg-gray-100 p-2 rounded-lg">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <span className="font-medium text-gray-900">{reply.user.name}</span>
-                        {reply.user.role === 'department' && (
-                          <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                            Department Official
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs text-gray-500 flex items-center">
-                        <FaClock className="mr-1" />
-                        {timeAgo(reply.createdAt)}
-                      </div>
-                    </div>
-                    <p className="mt-1 text-sm text-gray-800">{reply.text}</p>
+          <div className="mt-3 pl-12 space-y-3">
+            {comment.replies.map((r) => (
+              <div key={r._id || r.id} className="bg-gray-50 p-2 rounded-md">
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0">
+                    {r.user?.profileImage ? (
+                      <img className="h-8 w-8 rounded-full" src={r.user.profileImage} alt={r.user.name} />
+                    ) : (
+                      <img className="h-8 w-8 rounded-full" src={defaultProfilePic} alt={r.user?.name || 'User'} />
+                    )}
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">{r.user?.name}</div>
+                    <div className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">{r.text}</div>
+                    <div className="text-xs text-gray-500 mt-1">{timeAgo(r.createdAt)}</div>
                   </div>
                 </div>
               </div>
@@ -132,13 +95,26 @@ const CommentBox = ({ issueId }) => {
 
   const { user } = useAuth();
 
-  // Fetch comments for the issue (real API)
+  // Helpful keywords users can click to insert into the comment box
+  const keywordSuggestions = [
+    'Pothole',
+    'Streetlight',
+    'Garbage',
+    'Waterlogging',
+    'Traffic',
+    'Blocked Drain',
+    'Urgent',
+    'Minor',
+    'Intersection',
+    'Near School',
+    'Repair Needed',
+  ];
   useEffect(() => {
     const fetchComments = async () => {
       try {
         setLoading(true);
-        const data = await getCommentsByIssue(issueId);
-        setComments(Array.isArray(data) ? data : []);
+  const data = await getCommentsByIssue(issueId);
+  setComments(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error('Error fetching comments:', err);
       } finally {
@@ -151,7 +127,6 @@ const CommentBox = ({ issueId }) => {
 
   const handleSubmitComment = async (e) => {
     e.preventDefault();
-
     if (!newComment.trim()) return;
     if (!user) {
       alert('Please login to add a comment');
@@ -161,25 +136,43 @@ const CommentBox = ({ issueId }) => {
     try {
       setIsSubmitting(true);
 
-      // Build payload for API
-      const payload = {
+      const commentData = {
         text: newComment.trim(),
         issue: issueId,
-        parentComment: replyTo ? (replyTo._id || replyTo.id) : undefined,
+        parentComment: replyTo ? (replyTo._id || replyTo.id) : null,
       };
 
-      await createComment(payload);
+      // Create comment via API
+      const created = await createCommentApi(commentData);
 
-      // Refresh comments from server to ensure consistency
-      const data = await getCommentsByIssue(issueId);
-      setComments(Array.isArray(data) ? data : []);
+      // Refresh comments to ensure consistent ordering/structure
+      try {
+        const refreshed = await getCommentsByIssue(issueId);
+        setComments(Array.isArray(refreshed) ? refreshed : refreshed || []);
+      } catch (e) {
+        // Fallback: optimistically append created comment if refresh fails
+        if (created) {
+          if (replyTo) {
+            setComments((prev) =>
+              prev.map((c) => {
+                const cid = c._id || c.id;
+                const rid = replyTo._id || replyTo.id;
+                if (String(cid) === String(rid)) {
+                  return { ...c, replies: [...(c.replies || []), created] };
+                }
+                return c;
+              })
+            );
+          } else {
+            setComments((prev) => [...prev, created]);
+          }
+        }
+      }
 
-      // Notify other tabs/components (Home) to refresh issues/comments count
+      // Notify other tabs/components to refresh caches
       try {
         localStorage.setItem('issuesInvalidateTs', String(Date.now()));
       } catch {}
-
-      // Reset form
       setNewComment('');
       setReplyTo(null);
     } catch (err) {
@@ -191,16 +184,24 @@ const CommentBox = ({ issueId }) => {
 
   const handleReply = (comment) => {
     setReplyTo(comment);
-    // Focus the comment input
-    document.getElementById('comment-input').focus();
+    const el = document.getElementById('comment-input');
+    if (el) el.focus();
   };
 
-  const cancelReply = () => {
-    setReplyTo(null);
+  const insertKeyword = (kw) => {
+    // append keyword with spacing and preserve caret at end
+    setNewComment((prev) => (prev ? prev + (prev.endsWith(' ') ? '' : ' ') + kw + ' ' : kw + ' '));
+    const el = document.getElementById('comment-input');
+    if (el) {
+      // small timeout to allow state update then focus
+      setTimeout(() => el.focus(), 0);
+    }
   };
+
+  const cancelReply = () => setReplyTo(null);
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200" style={{ maxWidth: '100%', maxHeight: '100%' }}>
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200">
       <div className="p-4 border-b border-gray-200">
         <h3 className="text-lg font-medium text-gray-800">Comments</h3>
       </div>
@@ -208,7 +209,7 @@ const CommentBox = ({ issueId }) => {
       <div className="p-4">
         {loading ? (
           <div className="flex justify-center items-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
           </div>
         ) : comments.length === 0 ? (
           <div className="text-center py-8">
@@ -217,11 +218,7 @@ const CommentBox = ({ issueId }) => {
         ) : (
           <div className="space-y-4 mb-6">
             {comments.map((comment) => (
-              <Comment
-                key={comment.id}
-                comment={comment}
-                onReply={handleReply}
-              />
+              <Comment key={comment._id || comment.id} comment={comment} onReply={handleReply} />
             ))}
           </div>
         )}
@@ -231,33 +228,17 @@ const CommentBox = ({ issueId }) => {
             <div className="mt-4">
               {replyTo && (
                 <div className="mb-2 p-2 bg-blue-50 rounded-md flex justify-between items-center">
-                  <span className="text-sm text-gray-700">
-                    Replying to <span className="font-medium">{replyTo.user.name}</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={cancelReply}
-                    className="text-sm text-gray-500 hover:text-gray-700"
-                  >
-                    Cancel
-                  </button>
+                  <span className="text-sm text-gray-700">Replying to <span className="font-medium">{replyTo.user?.name}</span></span>
+                  <button type="button" onClick={cancelReply} className="text-sm text-gray-500 hover:text-gray-700">Cancel</button>
                 </div>
               )}
 
               <div className="flex space-x-3">
                 <div className="flex-shrink-0">
                   {user.avatar ? (
-                    <img
-                      className="h-10 w-10 rounded-full"
-                      src={user.avatar}
-                      alt={user.name}
-                    />
+                    <img className="h-10 w-10 rounded-full" src={user.avatar} alt={user.name} />
                   ) : (
-                    <img
-                      className="h-10 w-10 rounded-full"
-                      src={defaultProfilePic}
-                      alt={user.name || 'User'}
-                    />
+                    <img className="h-10 w-10 rounded-full" src={defaultProfilePic} alt={user.name || 'User'} />
                   )}
                 </div>
 
@@ -265,12 +246,31 @@ const CommentBox = ({ issueId }) => {
                   <textarea
                     id="comment-input"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder={replyTo ? `Reply to ${replyTo.user.name}...` : "Add a comment..."}
+                    placeholder={replyTo ? `Reply to ${replyTo.user?.name}... (eg. 'Pothole, Near School, Urgent')` : "Add a comment... Try including keywords: type (Pothole/Streetlight), location (Near School/Intersection), severity (Urgent/Minor)"}
                     rows="3"
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
                     disabled={isSubmitting}
-                  ></textarea>
+                  />
+
+                  {/* Keyword suggestion chips */}
+                  <div className="mt-2">
+                    <div className="text-xs text-gray-500 mb-1">Suggested keywords — click to insert:</div>
+                    <div className="flex flex-wrap gap-2">
+                      {keywordSuggestions.map((kw) => (
+                        <button
+                          key={kw}
+                          type="button"
+                          onClick={() => insertKeyword(kw)}
+                          className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded-full border border-gray-200"
+                          aria-label={`Insert keyword ${kw}`}
+                        >
+                          {kw}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="text-xs text-gray-400 mt-1">Tip: Describe what happened, where exactly it is, and how urgent it is.</div>
+                  </div>
 
                   <div className="mt-2 flex justify-end">
                     <button
@@ -287,10 +287,7 @@ const CommentBox = ({ issueId }) => {
                           Posting...
                         </span>
                       ) : (
-                        <span className="flex items-center">
-                          <FaPaperPlane className="mr-2" />
-                          {replyTo ? 'Reply' : 'Comment'}
-                        </span>
+                        <span className="flex items-center"><FaPaperPlane className="mr-2" />{replyTo ? 'Reply' : 'Comment'}</span>
                       )}
                     </button>
                   </div>

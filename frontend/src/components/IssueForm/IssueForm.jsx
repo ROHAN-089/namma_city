@@ -33,6 +33,41 @@ const IssueForm = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  // Suggested keywords to help users provide clearer reports
+  const keywordSuggestions = [
+    'Pothole',
+    'Streetlight',
+    'Garbage',
+    'Waterlogging',
+    'Traffic',
+    'Blocked Drain',
+    'Urgent',
+    'Minor',
+    'Intersection',
+    'Near School',
+    'Power Outage',
+    'Fallen Tree',
+    'Overflow',
+    'Broken Sidewalk',
+  ];
+
+  // Insert a keyword into the chosen field ('title' or 'description')
+  const insertKeyword = (field, kw) => {
+    setFormData((prev) => {
+      const prevVal = prev[field] || '';
+      const spaced = prevVal && !prevVal.endsWith(' ') ? prevVal + ' ' : prevVal;
+      return {
+        ...prev,
+        [field]: (spaced || '') + kw + ' '
+      };
+    });
+    // focus the corresponding input
+    const el = document.getElementById(field);
+    if (el) {
+      setTimeout(() => el.focus(), 0);
+    }
+  };
+
   // Handle form input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -370,11 +405,28 @@ const IssueForm = () => {
                 name="title"
                 type="text"
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="e.g., Broken streetlight on Main Street"
+                placeholder="e.g., Broken streetlight on Main Street — try adding keywords like 'Streetlight', 'Near School', 'Urgent'"
                 value={formData.title}
                 onChange={handleChange}
                 required
               />
+
+              <div className="mt-2">
+                <div className="text-xs text-gray-500 mb-1">Quick keywords for title — click to insert:</div>
+                <div className="flex flex-wrap gap-2">
+                  {keywordSuggestions.slice(0, 6).map((kw) => (
+                    <button
+                      key={`t-${kw}`}
+                      type="button"
+                      onClick={() => insertKeyword('title', kw)}
+                      className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded-full border border-gray-200"
+                      aria-label={`Insert ${kw} into title`}
+                    >
+                      {kw}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <div className="md:col-span-2">
@@ -386,10 +438,28 @@ const IssueForm = () => {
                 name="description"
                 rows="4"
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Please provide details of the issue (optional)..."
+                placeholder="Describe what happened, where exactly it is, and how urgent it is. Try keywords: 'Pothole', 'Near School', 'Urgent'"
                 value={formData.description}
                 onChange={handleChange}
               />
+
+              <div className="mt-2">
+                <div className="text-xs text-gray-500 mb-1">Suggested keywords — click to append to description:</div>
+                <div className="flex flex-wrap gap-2">
+                  {keywordSuggestions.map((kw) => (
+                    <button
+                      key={`d-${kw}`}
+                      type="button"
+                      onClick={() => insertKeyword('description', kw)}
+                      className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded-full border border-gray-200"
+                      aria-label={`Insert ${kw} into description`}
+                    >
+                      {kw}
+                    </button>
+                  ))}
+                </div>
+                <div className="text-xs text-gray-400 mt-1">Tip: include issue type, exact location (landmarks), and severity.</div>
+              </div>
             </div>
 
             {/* AI Suggestions Button */}
