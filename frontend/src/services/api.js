@@ -4,8 +4,11 @@ import axios from 'axios';
 const TIMEOUT = 10000;
 const MAX_RETRIES = 2;
 
+// Use Vite environment variable VITE_BACKEND_URL if provided, otherwise fall back to http://localhost:5000
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL: `${BACKEND_URL}/api`,
   headers: {
     'Content-Type': 'application/json'
   },
