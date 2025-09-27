@@ -2,17 +2,50 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { reverseGeocode } from '../../utils/geocoding';
+import { upvoteIssue } from '../../services/issueService';
 
 const IssueCard = ({ issue }) => {
   const { user } = useAuth();
 
+  // Local upvote state derived from props
+  const initialUpvotes = Array.isArray(issue.upvotes) ? issue.upvotes : [];
+  const [upvoteCount, setUpvoteCount] = useState(initialUpvotes.length);
+  const [upvoted, setUpvoted] = useState(user ? initialUpvotes.includes(user._id) : false);
+
+  // Keep local state in sync if issue prop or user changes
+  useEffect(() => {
+    const nextUpvotes = Array.isArray(issue.upvotes) ? issue.upvotes : [];
+    setUpvoteCount(nextUpvotes.length);
+    setUpvoted(user ? nextUpvotes.includes(user._id) : false);
+  }, [issue.upvotes, user]);
+
   // Function to handle upvoting an issue
   const handleUpvote = async () => {
     try {
-      // API call to upvote the issue would go here
-      console.log(`Upvoted issue ${issue.id}`);
+      if (!user) {
+        // Redirect to login if not authenticated
+        window.location.href = '/login';
+        return;
+      }
+
+      // Optimistic update
+      setUpvoted(prev => !prev);
+      setUpvoteCount(prev => (upvoted ? Math.max(prev - 1, 0) : prev + 1));
+
+      const res = await upvoteIssue(issue._id || issue.id);
+
+      // Sync with server response shape from backend: { upvotes, upvoted }
+      if (res && typeof res.upvotes === 'number') {
+        setUpvoteCount(res.upvotes);
+      }
+      if (res && typeof res.upvoted === 'boolean') {
+        setUpvoted(res.upvoted);
+      }
     } catch (error) {
       console.error('Error upvoting issue:', error);
+      // Revert optimistic update on error
+      setUpvoted(prev => !prev);
+      setUpvoteCount(prev => (upvoted ? prev + 1 : Math.max(prev - 1, 0)));
     }
   };
 
@@ -76,8 +109,6 @@ const IssueCard = ({ issue }) => {
     }
   };
 
-  // Ensure issue.upvotes is treated as an array
-  const upvotes = Array.isArray(issue.upvotes) ? issue.upvotes : [];
   const [locationName, setLocationName] = useState('');
 
   // Fetch location name when component mounts or location changes
@@ -130,21 +161,23 @@ const IssueCard = ({ issue }) => {
           <div className="flex items-center space-x-4">
             <button
               onClick={handleUpvote}
-              disabled={!user || upvotes.includes(user._id)}
-              className={`flex items-center space-x-1 text-sm ${!user || upvotes.includes(user._id) ? 'text-gray-400 cursor-not-allowed' : 'text-blue-500 hover:text-blue-700'}`}
+              className={`flex items-center space-x-1 text-sm ${upvoted ? 'text-blue-600' : 'text-blue-500 hover:text-blue-700'}`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
               </svg>
-              <span>{upvotes.length || 0} Upvotes</span>
+              <span>{upvoteCount} {upvoteCount === 1 ? 'Upvote' : 'Upvotes'}</span>
             </button>
 
-            <div className="flex items-center space-x-1 text-sm text-gray-500">
+            <Link
+              to={`/issues/${issue._id}?composeComment=1#comments-section`}
+              className="flex items-center space-x-1 text-sm text-gray-500 hover:text-blue-600"
+            >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
-              <span>0 Comments</span>
-            </div>
+              <span>{typeof issue.commentsCount === 'number' ? issue.commentsCount : 0} Comments</span>
+            </Link>
           </div>
 
           <div className="flex items-center">
