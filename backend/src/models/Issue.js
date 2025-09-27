@@ -107,6 +107,14 @@ issueSchema.virtual('comments', {
   foreignField: 'issue'
 });
 
+// Virtual count of comments (lightweight for list views)
+issueSchema.virtual('commentsCount', {
+  ref: 'Comment',
+  localField: '_id',
+  foreignField: 'issue',
+  count: true
+});
+
 // Index for geospatial queries
 issueSchema.index({ "location.coordinates": '2dsphere' });
 
