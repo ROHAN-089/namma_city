@@ -234,6 +234,7 @@ const getIssues = asyncHandler(async (req, res) => {
     .populate('reportedBy', 'name role profileImage')
     .populate('city', 'name state')
     .populate('assignedTo', 'name role department')
+    .populate('commentsCount')
     .sort(sort)
     .skip(skip)
     .limit(limit);

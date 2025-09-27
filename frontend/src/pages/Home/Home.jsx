@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import IssueCard from '../../components/IssueCard/IssueCard';
@@ -39,20 +39,18 @@ const Home = () => {
     }
   }, [user]);
 
-  // Load issues and cities data
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
+  // Fetch issues utility (memoized)
+  const fetchIssues = useCallback(async () => {
+    try {
+      setLoading(true);
 
-        // Fetch all issues from the backend without filtering by city
-        // We'll filter on the client side based on selectedCity
-        const issuesResponse = await getAllIssues();
-        const fetchedIssues = issuesResponse.issues || [];
-        
-        console.log('Fetched issues:', fetchedIssues.length);
+      // Fetch more than the default 10 so counts reflect broader data
+      const issuesResponse = await getAllIssues(null, { limit: 100 });
+      const fetchedIssues = issuesResponse.issues || [];
 
-        const formattedIssues = fetchedIssues.map(issue => ({
+      console.log('Fetched issues:', fetchedIssues.length);
+
+      const formattedIssues = fetchedIssues.map(issue => ({
           ...issue,
           id: issue._id || issue.id,
           title: issue.title,
@@ -66,31 +64,43 @@ const Home = () => {
           reportedBy: issue.reportedBy?.name || 'Anonymous',
           userId: issue.reportedBy?._id,
           upvotes: issue.upvotes || [],
-          comments: issue.comments || [],
+          // Prefer lightweight count from backend virtual, fallback to populated array length or 0
+          commentsCount: (typeof issue.commentsCount === 'number') 
+            ? issue.commentsCount 
+            : (Array.isArray(issue.comments) ? issue.comments.length : 0),
           departmentAssigned: issue.assignedToDepartment?.name || 'Unassigned',
           city: issue.city?.name || 'Unknown City'
         }));
 
-        setIssues(formattedIssues);
-        setFilteredIssues(formattedIssues);
+      setIssues(formattedIssues);
+      setFilteredIssues(formattedIssues);
 
-        // Use the predefined Indian cities list
-        setCities(indianCities.map((city, index) => ({
-          id: index.toString(),
-          name: city.name,
-          state: city.state
-        })));
+      // Use the predefined Indian cities list
+      setCities(indianCities.map((city, index) => ({
+        id: index.toString(),
+        name: city.name,
+        state: city.state
+      })));
 
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        toast.error('Failed to load issues. Please try again later.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast.error('Failed to load issues. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
+
+  // Load issues on mount and when user changes
+  useEffect(() => {
+    fetchIssues();
+  }, [fetchIssues]);
+
+  // Refresh when the window regains focus (helps after posting a comment on details page)
+  useEffect(() => {
+    const onFocus = () => fetchIssues();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [fetchIssues]);
 
   // Filter and sort issues based on selected filters
   useEffect(() => {

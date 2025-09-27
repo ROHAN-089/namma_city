@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { FaUserCircle, FaReply, FaPaperPlane, FaClock } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 import defaultProfilePic from '../../assets/default-profile.svg';
+import { getCommentsByIssue, createComment } from '../../services/commentService';
 
 const Comment = ({ comment, onReply }) => {
   const timeAgo = (date) => {
@@ -131,60 +132,21 @@ const CommentBox = ({ issueId }) => {
 
   const { user } = useAuth();
 
-  // Fetch comments for the issue
+  // Fetch comments for the issue (real API)
   useEffect(() => {
     const fetchComments = async () => {
       try {
-        // TODO: Replace with actual API call
-        // const response = await axios.get(`/api/issues/${issueId}/comments`);
-        // setComments(response.data);
-
-        // Mock data for demo
-        setTimeout(() => {
-          setComments([
-            {
-              id: '1',
-              text: 'This issue has been happening for weeks now. I hope it gets fixed soon!',
-              createdAt: '2023-04-10T14:30:00Z',
-              user: {
-                id: '101',
-                name: 'Jane Citizen',
-                role: 'citizen'
-              },
-              replies: [
-                {
-                  id: '3',
-                  text: 'Thank you for reporting this issue. We have scheduled a team to look into it next week.',
-                  createdAt: '2023-04-11T10:15:00Z',
-                  user: {
-                    id: '201',
-                    name: 'Public Works Department',
-                    role: 'department'
-                  }
-                }
-              ]
-            },
-            {
-              id: '2',
-              text: 'I noticed this too. It\'s getting worse with the recent rain.',
-              createdAt: '2023-04-10T16:45:00Z',
-              user: {
-                id: '102',
-                name: 'John Doe',
-                role: 'citizen'
-              },
-              replies: []
-            },
-          ]);
-          setLoading(false);
-        }, 800);
+        setLoading(true);
+        const data = await getCommentsByIssue(issueId);
+        setComments(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error('Error fetching comments:', err);
+      } finally {
         setLoading(false);
       }
     };
 
-    fetchComments();
+    if (issueId) fetchComments();
   }, [issueId]);
 
   const handleSubmitComment = async (e) => {
@@ -199,76 +161,30 @@ const CommentBox = ({ issueId }) => {
     try {
       setIsSubmitting(true);
 
-      const commentData = {
+      // Build payload for API
+      const payload = {
         text: newComment.trim(),
-        issueId,
-        userId: user.id,
-        parentId: replyTo ? replyTo.id : null,
-        createdAt: new Date().toISOString()
+        issue: issueId,
+        parentComment: replyTo ? (replyTo._id || replyTo.id) : undefined,
       };
 
-      // TODO: Replace with actual API call
-      // const response = await axios.post(`/api/issues/${issueId}/comments`, commentData);
-      // const newCommentData = response.data;
+      await createComment(payload);
 
-      // Simulate API call and response
-      setTimeout(() => {
-        const tempId = Date.now().toString();
+      // Refresh comments from server to ensure consistency
+      const data = await getCommentsByIssue(issueId);
+      setComments(Array.isArray(data) ? data : []);
 
-        if (replyTo) {
-          // Add reply to existing comment
-          setComments(prevComments =>
-            prevComments.map(comment => {
-              if (comment.id === replyTo.id) {
-                const replies = comment.replies || [];
-                return {
-                  ...comment,
-                  replies: [
-                    ...replies,
-                    {
-                      id: tempId,
-                      text: newComment.trim(),
-                      createdAt: new Date().toISOString(),
-                      user: {
-                        id: user.id,
-                        name: user.name,
-                        role: user.role,
-                        avatar: user.avatar
-                      }
-                    }
-                  ]
-                };
-              }
-              return comment;
-            })
-          );
-        } else {
-          // Add new top-level comment
-          setComments(prevComments => [
-            ...prevComments,
-            {
-              id: tempId,
-              text: newComment.trim(),
-              createdAt: new Date().toISOString(),
-              user: {
-                id: user.id,
-                name: user.name,
-                role: user.role,
-                avatar: user.avatar
-              },
-              replies: []
-            }
-          ]);
-        }
+      // Notify other tabs/components (Home) to refresh issues/comments count
+      try {
+        localStorage.setItem('issuesInvalidateTs', String(Date.now()));
+      } catch {}
 
-        // Reset form
-        setNewComment('');
-        setReplyTo(null);
-        setIsSubmitting(false);
-      }, 800);
-
+      // Reset form
+      setNewComment('');
+      setReplyTo(null);
     } catch (err) {
       console.error('Error posting comment:', err);
+    } finally {
       setIsSubmitting(false);
     }
   };
