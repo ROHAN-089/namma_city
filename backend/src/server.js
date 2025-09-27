@@ -23,6 +23,7 @@ app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/cities', require('./routes/cityRoutes'));
 app.use('/api/issues', require('./routes/issueRoutes'));
 app.use('/api/comments', require('./routes/commentRoutes'));
+app.use('/api/ai', require('./routes/aiRoutes')); // AI Enhancement Routes
 
 // Default route
 app.get('/', (req, res) => {

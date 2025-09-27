@@ -3,70 +3,141 @@ const mongoose = require('mongoose');
 const Issue = require('../models/Issue');
 const User = require('../models/User');
 const City = require('../models/City');
+const aiEnhancementService = require('../services/aiEnhancementService');
 
-// @desc    Create a new issue
+// @desc    Create a new issue with AI processing
 // @route   POST /api/issues
 // @access  Private
 const createIssue = asyncHandler(async (req, res) => {
   try {
-    const { title, description, category, priority, location, city } = req.body;
+    const { title, description, location, city, images, useAI = true, category, priority } = req.body;
 
-    if (!title || !description) {
+    if (!title || !title.trim()) {
       return res.status(400).json({
-        message: 'Title and description are required'
+        message: 'Title is required'
       });
     }
 
-    // Find or create city
+    console.log('🚀 Creating new issue:', { title: title.trim(), useAI });
+
+    // STEP 1: Process issue with Gemini AI
+    let processedIssueData;
+    
+    if (useAI) {
+      console.log('🤖 Processing issue with Gemini AI...');
+      try {
+        processedIssueData = await aiEnhancementService.processCompleteIssue({
+          title: title.trim(),
+          description: description?.trim() || '',
+          location,
+          city,
+          images
+        });
+        console.log('✅ AI processing completed:', processedIssueData.aiProcessed);
+      } catch (aiError) {
+        console.warn('⚠️ AI processing failed, using fallback:', aiError.message);
+        // AI failed, use basic processing
+        processedIssueData = {
+          title: title.trim(),
+          description: description || `Issue: ${title.trim()}. Location: ${location?.address || 'Not specified'}.`,
+          category: category || 'others',
+          priority: priority || 'medium',
+          location,
+          city,
+          images: images || [],
+          aiProcessed: false,
+          originalUserInput: { title: title.trim(), description: description || '' },
+          aiMetadata: {
+            enhancementType: 'none',
+            processingTime: 0,
+            reasoning: 'AI processing failed',
+            publicImpactScore: 'medium',
+            department: 'OTHER',
+            confidence: 0
+          }
+        };
+      }
+    } else {
+      // Manual processing (backward compatibility)
+      processedIssueData = {
+        title: title.trim(),
+        description: description || `Issue: ${title.trim()}`,
+        category: category || 'others',
+        priority: priority || 'medium',
+        location,
+        city,
+        images: images || [],
+        aiProcessed: false,
+        originalUserInput: { title: title.trim(), description: description || '' },
+        aiMetadata: {
+          enhancementType: 'manual',
+          processingTime: 0,
+          reasoning: 'Manual entry by user',
+          publicImpactScore: 'medium',
+          department: 'OTHER',
+          confidence: 1.0
+        }
+      };
+    }
+
+    // STEP 2: Find or create city
     let cityRef;
+    const cityName = processedIssueData.city || city || 'Default City';
+    
     try {
       // First try to find existing city
       cityRef = await City.findOne({
-        name: { $regex: new RegExp('^' + city + '$', 'i') }
+        name: { $regex: new RegExp('^' + cityName + '$', 'i') }
       });
 
       // If city doesn't exist, create it
       if (!cityRef) {
         cityRef = await City.create({
-          name: city,
-          state: 'Unknown', // Default state
+          name: cityName,
+          state: 'Unknown',
           country: 'India',
-          coordinates: location ? {
+          coordinates: processedIssueData.location ? {
             type: 'Point',
-            coordinates: location.coordinates
+            coordinates: processedIssueData.location.coordinates
           } : {
             type: 'Point',
-            coordinates: [77.0, 20.0] // Default coordinates for India
+            coordinates: [77.0, 20.0]
           }
         });
       }
     } catch (cityError) {
       console.error('Error handling city:', cityError);
-      // If city handling fails, store the city name as string
-      cityRef = city;
+      // If city handling fails, create default city
+      cityRef = await City.findOne({ name: 'Default City' }) || 
+                await City.create({ name: 'Default City', state: 'Unknown', country: 'India' });
     }
 
+    // STEP 3: Create issue with AI-processed data
     const issueData = {
-      title,
-      description,
-      category: category || 'others',
-      priority: priority || 'medium',
+      title: processedIssueData.title,
+      description: processedIssueData.description,
+      category: processedIssueData.category || 'others',
+      priority: processedIssueData.priority || 'medium',
       reportedBy: req.user._id,
       status: 'reported',
-      city: cityRef._id || cityRef,
-      location: location ? {
+      city: cityRef._id,
+      location: processedIssueData.location ? {
         type: 'Point',
         coordinates: [
-          parseFloat(location.coordinates[0]),
-          parseFloat(location.coordinates[1])
+          parseFloat(processedIssueData.location.coordinates[0]),
+          parseFloat(processedIssueData.location.coordinates[1])
         ],
-        address: location.address || 'Location not specified'
+        address: processedIssueData.location.address || 'Location not specified'
       } : null,
       statusHistory: [{
         status: 'reported',
         changedBy: req.user._id,
         timestamp: Date.now()
-      }]
+      }],
+      // AI-specific fields
+      aiProcessed: processedIssueData.aiProcessed,
+      originalUserInput: processedIssueData.originalUserInput,
+      aiMetadata: processedIssueData.aiMetadata
     };
 
     const issue = await Issue.create(issueData);
@@ -75,16 +146,32 @@ const createIssue = asyncHandler(async (req, res) => {
       return res.status(400).json({ message: 'Failed to create issue' });
     }
 
-    // Return populated issue
+    // STEP 4: Return populated issue with AI insights
     const populatedIssue = await Issue.findById(issue._id)
       .populate('reportedBy', 'name role')
       .populate('city', 'name state')
       .populate('assignedTo', 'name role department');
 
-    return res.status(201).json(populatedIssue);
+    console.log('✅ Issue created successfully:', {
+      id: issue._id,
+      title: issue.title,
+      aiProcessed: issue.aiProcessed,
+      department: issue.aiMetadata?.department || 'OTHER'
+    });
+
+    return res.status(201).json({
+      ...populatedIssue.toObject(),
+      aiInsights: processedIssueData.aiProcessed ? {
+        enhancementType: processedIssueData.aiMetadata.enhancementType,
+        department: processedIssueData.aiMetadata.department,
+        publicImpactScore: processedIssueData.aiMetadata.publicImpactScore,
+        confidence: processedIssueData.aiMetadata.confidence,
+        reasoning: processedIssueData.aiMetadata.reasoning
+      } : null
+    });
 
   } catch (error) {
-    console.error('Error creating issue:', error);
+    console.error('❌ Error creating issue:', error);
     return res.status(500).json({
       message: 'Server error creating issue',
       error: error.message

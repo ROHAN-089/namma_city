@@ -76,6 +76,27 @@ const issueSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }],
+  // AI Enhancement Fields (Non-Breaking)
+  aiProcessed: {
+    type: Boolean,
+    default: false
+  },
+  originalUserInput: {
+    title: String,
+    description: String
+  },
+  aiMetadata: {
+    enhancementType: {
+      type: String,
+      enum: ['generated', 'enhanced', 'none'],
+      default: 'none'
+    },
+    processingTime: Number,
+    reasoning: String,
+    publicImpactScore: String,
+    department: String,
+    confidence: Number
+  },
   statusHistory: [{
     status: {
       type: String,

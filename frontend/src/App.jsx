@@ -13,6 +13,7 @@ import Profile from './pages/Profile/Profile';
 import PrivateRoute from './components/PrivateRoute/PrivateRoute';
 import RoleBasedRoute from './components/RoleBasedRoute/RoleBasedRoute';
 import Chatbot from './components/Chatbot/Chatbot';
+import AITestComponent from './components/AITestComponent';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -27,6 +28,7 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/ai-test" element={<AITestComponent />} />
 
               {/* Citizen routes */}
               <Route

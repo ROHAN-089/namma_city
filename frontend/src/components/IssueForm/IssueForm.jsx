@@ -5,6 +5,7 @@ import { createIssue } from '../../services/issueService';
 import { indianCities } from '../../data/indianCities';
 import { toast } from 'react-toastify';
 import { FaLocationArrow, FaMapMarkerAlt } from 'react-icons/fa';
+import SmartSuggestions from '../SmartSuggestions/SmartSuggestions';
 
 const IssueForm = () => {
   const [formData, setFormData] = useState({
@@ -20,6 +21,9 @@ const IssueForm = () => {
     },
     images: []
   });
+
+  const [useAI, setUseAI] = useState(true); // AI processing enabled by default
+  const [aiInsights, setAiInsights] = useState(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -78,6 +82,15 @@ const IssueForm = () => {
     }));
 
     setError('');
+  };
+
+  // Handle AI suggestion acceptance
+  const handleSuggestionAccept = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    toast.success(`Applied AI suggestion for ${field}: ${value}`);
   };
 
   // Get current location using browser's geolocation API
@@ -219,14 +232,14 @@ const IssueForm = () => {
       setIsSubmitting(true);
       setError('');
 
-      // Format the data for submission
+      // Format the data for submission with AI processing
       const issueData = {
         title: formData.title.trim(),
         description: formData.description.trim(),
         category: formData.category,
         priority: formData.priority,
         // Find the complete city object from the cities array
-        city: cities.find(city => city.name === formData.city) || { name: formData.city },
+        city: cities.find(city => city.name === formData.city)?.name || formData.city,
         location: {
           type: 'Point',
           coordinates: [
@@ -235,16 +248,23 @@ const IssueForm = () => {
           ],
           address: formData.location.address
         },
-        images: formData.images
+        images: formData.images,
+        useAI: useAI // Use AI processing based on toggle
       };
       
-      console.log('Issue with city data:', issueData.city);
+      console.log('🚀 Submitting issue with AI processing:', { useAI, title: issueData.title });
 
       // Call API to create the issue
       const result = await createIssue(issueData);
 
-      // Show success message
-      toast.success('Issue reported successfully!');
+      // Store AI insights if available
+      if (result.aiInsights) {
+        setAiInsights(result.aiInsights);
+        toast.success(`Issue enhanced by AI and reported successfully! Routed to ${result.aiInsights.department} department.`);
+      } else {
+        toast.success('Issue reported successfully!');
+      }
+      
       setSuccess(true);
 
       // Reset form or redirect
@@ -286,7 +306,26 @@ const IssueForm = () => {
 
       {success && (
         <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-          Issue reported successfully! Redirecting to dashboard...
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-green-800">
+                Issue reported successfully! 
+              </h3>
+              {aiInsights && (
+                <div className="mt-2 text-sm text-green-700">
+                  <p><strong>🤖 AI Enhanced:</strong> Routed to {aiInsights.department} department</p>
+                  <p><strong>Impact Score:</strong> {aiInsights.publicImpactScore}</p>
+                  <p><strong>Confidence:</strong> {Math.round(aiInsights.confidence * 100)}%</p>
+                </div>
+              )}
+              <p className="mt-2 text-sm text-green-700">Redirecting to dashboard...</p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -323,6 +362,44 @@ const IssueForm = () => {
                 onChange={handleChange}
                 required
               />
+            </div>
+
+            {/* AI Smart Suggestions - Non-breaking enhancement */}
+            <div className="md:col-span-2">
+              <SmartSuggestions
+                title={formData.title}
+                description={formData.description}
+                currentCategory={formData.category}
+                currentPriority={formData.priority}
+                onSuggestionAccept={handleSuggestionAccept}
+              />
+            </div>
+
+            {/* AI Processing Toggle */}
+            <div className="md:col-span-2">
+              <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div>
+                  <label htmlFor="useAI" className="text-sm font-medium text-blue-900">
+                    🤖 AI Enhancement
+                  </label>
+                  <p className="text-xs text-blue-700 mt-1">
+                    Let Gemini AI improve your issue description and auto-route to the right department
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setUseAI(!useAI)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    useAI ? 'bg-blue-600' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      useAI ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
 
             <div>
