@@ -5,12 +5,12 @@ const User = require('../models/User');
 const City = require('../models/City');
 const aiEnhancementService = require('../services/aiEnhancementService');
 
-// @desc    Create a new issue with AI processing
+// @desc    Create a new issue (AI optional, handled separately)
 // @route   POST /api/issues
 // @access  Private
 const createIssue = asyncHandler(async (req, res) => {
   try {
-    const { title, description, location, city, images, useAI = true, category, priority } = req.body;
+    const { title, description, location, city, images, category, priority } = req.body;
 
     if (!title || !title.trim()) {
       return res.status(400).json({
@@ -18,72 +18,26 @@ const createIssue = asyncHandler(async (req, res) => {
       });
     }
 
-    console.log('🚀 Creating new issue:', { title: title.trim(), useAI });
+    console.log('🚀 Creating new issue:', { title: title.trim() });
 
-    // STEP 1: Process issue with Gemini AI
-    let processedIssueData;
-    
-    if (useAI) {
-      console.log('🤖 Processing issue with Gemini AI...');
-      try {
-        processedIssueData = await aiEnhancementService.processCompleteIssue({
-          title: title.trim(),
-          description: description?.trim() || '',
-          location,
-          city,
-          images
-        });
-        console.log('✅ AI processing completed:', processedIssueData.aiProcessed);
-      } catch (aiError) {
-        console.warn('⚠️ AI processing failed, using fallback:', aiError.message);
-        // AI failed, use basic processing
-        processedIssueData = {
-          title: title.trim(),
-          description: description || `Issue: ${title.trim()}. Location: ${location?.address || 'Not specified'}.`,
-          category: category || 'others',
-          priority: priority || 'medium',
-          location,
-          city,
-          images: images || [],
-          aiProcessed: false,
-          originalUserInput: { title: title.trim(), description: description || '' },
-          aiMetadata: {
-            enhancementType: 'none',
-            processingTime: 0,
-            reasoning: 'AI processing failed',
-            publicImpactScore: 'medium',
-            department: 'OTHER',
-            confidence: 0
-          }
-        };
-      }
-    } else {
-      // Manual processing (backward compatibility)
-      processedIssueData = {
-        title: title.trim(),
-        description: description || `Issue: ${title.trim()}`,
-        category: category || 'others',
-        priority: priority || 'medium',
-        location,
-        city,
-        images: images || [],
-        aiProcessed: false,
-        originalUserInput: { title: title.trim(), description: description || '' },
-        aiMetadata: {
-          enhancementType: 'manual',
-          processingTime: 0,
-          reasoning: 'Manual entry by user',
-          publicImpactScore: 'medium',
-          department: 'OTHER',
-          confidence: 1.0
-        }
-      };
-    }
+    // STEP 0: Map category to department for auto-routing
+    const categoryToDepartment = {
+      'roads': 'ROADS',
+      'water': 'WATER',
+      'electricity': 'ELECTRICITY',
+      'sanitation': 'SANITATION',
+      'public_safety': 'PUBLIC_SAFETY',
+      'public_transport': 'TRANSPORT',
+      'pollution': 'HEALTH',
+      'others': 'OTHER'
+    };
+    const assignedDepartment = categoryToDepartment[category] || 'OTHER';
+    console.log(`📋 Auto-routing to department: ${assignedDepartment}`);
 
-    // STEP 2: Find or create city
+    // STEP 1: Find or create city
     let cityRef;
-    const cityName = processedIssueData.city || city || 'Default City';
-    
+    const cityName = city || 'Default City';
+
     try {
       // First try to find existing city
       cityRef = await City.findOne({
@@ -96,9 +50,9 @@ const createIssue = asyncHandler(async (req, res) => {
           name: cityName,
           state: 'Unknown',
           country: 'India',
-          coordinates: processedIssueData.location ? {
+          coordinates: location ? {
             type: 'Point',
-            coordinates: processedIssueData.location.coordinates
+            coordinates: location.coordinates
           } : {
             type: 'Point',
             coordinates: [77.0, 20.0]
@@ -108,36 +62,37 @@ const createIssue = asyncHandler(async (req, res) => {
     } catch (cityError) {
       console.error('Error handling city:', cityError);
       // If city handling fails, create default city
-      cityRef = await City.findOne({ name: 'Default City' }) || 
-                await City.create({ name: 'Default City', state: 'Unknown', country: 'India' });
+      cityRef = await City.findOne({ name: 'Default City' }) ||
+        await City.create({ name: 'Default City', state: 'Unknown', country: 'India' });
     }
 
-    // STEP 3: Create issue with AI-processed data
+    // STEP 2: Create issue with user-provided data
     const issueData = {
-      title: processedIssueData.title,
-      description: processedIssueData.description,
-      category: processedIssueData.category || 'others',
-      priority: processedIssueData.priority || 'medium',
+      title: title.trim(),
+      description: description || `Issue reported: ${title.trim()}`,
+      category: category || 'others',
+      priority: priority || 'medium',
+      department: assignedDepartment,
       reportedBy: req.user._id,
       status: 'reported',
       city: cityRef._id,
-      location: processedIssueData.location ? {
+      location: location ? {
         type: 'Point',
         coordinates: [
-          parseFloat(processedIssueData.location.coordinates[0]),
-          parseFloat(processedIssueData.location.coordinates[1])
+          parseFloat(location.coordinates[0]),
+          parseFloat(location.coordinates[1])
         ],
-        address: processedIssueData.location.address || 'Location not specified'
+        address: location.address || 'Location not specified'
       } : null,
       statusHistory: [{
         status: 'reported',
         changedBy: req.user._id,
         timestamp: Date.now()
       }],
-      // AI-specific fields
-      aiProcessed: processedIssueData.aiProcessed,
-      originalUserInput: processedIssueData.originalUserInput,
-      aiMetadata: processedIssueData.aiMetadata
+      images: images || [],
+      // AI fields - not processed yet
+      aiProcessed: false
+      // Don't include aiMetadata or originalUserInput if not using AI
     };
 
     const issue = await Issue.create(issueData);
@@ -146,7 +101,27 @@ const createIssue = asyncHandler(async (req, res) => {
       return res.status(400).json({ message: 'Failed to create issue' });
     }
 
-    // STEP 4: Return populated issue with AI insights
+    // STEP 2.5: Try to auto-assign to appropriate department user
+    try {
+      const departmentUser = await User.findOne({
+        role: 'department',
+        department: assignedDepartment,
+        city: cityRef._id
+      });
+
+      if (departmentUser) {
+        issue.assignedTo = departmentUser._id;
+        await issue.save();
+        console.log(`✅ Auto-assigned to ${departmentUser.name} (${assignedDepartment} dept)`);
+      } else {
+        console.log(`⚠️ No ${assignedDepartment} department user found for auto-assignment`);
+      }
+    } catch (assignError) {
+      console.error('Error auto-assigning to department:', assignError);
+      // Continue even if assignment fails
+    }
+
+    // STEP 3: Return populated issue
     const populatedIssue = await Issue.findById(issue._id)
       .populate('reportedBy', 'name role')
       .populate('city', 'name state')
@@ -154,21 +129,10 @@ const createIssue = asyncHandler(async (req, res) => {
 
     console.log('✅ Issue created successfully:', {
       id: issue._id,
-      title: issue.title,
-      aiProcessed: issue.aiProcessed,
-      department: issue.aiMetadata?.department || 'OTHER'
+      title: issue.title
     });
 
-    return res.status(201).json({
-      ...populatedIssue.toObject(),
-      aiInsights: processedIssueData.aiProcessed ? {
-        enhancementType: processedIssueData.aiMetadata.enhancementType,
-        department: processedIssueData.aiMetadata.department,
-        publicImpactScore: processedIssueData.aiMetadata.publicImpactScore,
-        confidence: processedIssueData.aiMetadata.confidence,
-        reasoning: processedIssueData.aiMetadata.reasoning
-      } : null
-    });
+    return res.status(201).json(populatedIssue);
 
   } catch (error) {
     console.error('❌ Error creating issue:', error);
@@ -308,7 +272,7 @@ const updateIssue = asyncHandler(async (req, res) => {
   if (priority) issue.priority = priority;
   if (location) issue.location = location;
 
-  // Update status if provided and has changed
+    // Update status if provided and has changed
   if (req.body.status && req.body.status !== issue.status) {
     // Only department or admin can change status
     if (req.user.role !== 'admin' && req.user.role !== 'department') {
@@ -317,10 +281,21 @@ const updateIssue = asyncHandler(async (req, res) => {
     }
     console.log(`Updating issue status from ${issue.status} to ${req.body.status}`);
     issue.status = req.body.status;
-    
+
     // Add status note if provided or use default message
     const statusNote = req.body.statusNote || req.body.comment || `Status updated to ${req.body.status}`;
-    
+
+    // Handle status update images
+    let statusImages = [];
+    if (req.body.statusImages && Array.isArray(req.body.statusImages)) {
+      statusImages = req.body.statusImages;
+      // Add images to statusUpdateImages array
+      if (!issue.statusUpdateImages) {
+        issue.statusUpdateImages = [];
+      }
+      issue.statusUpdateImages.push(...statusImages);
+    }
+
     // Add to status history if tracking history
     if (issue.statusHistory) {
       issue.statusHistory.push({
@@ -328,6 +303,7 @@ const updateIssue = asyncHandler(async (req, res) => {
         updatedBy: req.user._id,
         updatedAt: new Date(),
         note: statusNote,
+        images: statusImages,
         timestamp: Date.now()
       });
     } else {
@@ -336,11 +312,10 @@ const updateIssue = asyncHandler(async (req, res) => {
         updatedBy: req.user._id,
         updatedAt: new Date(),
         note: statusNote,
+        images: statusImages,
         timestamp: Date.now()
       }];
-    }
-
-    // Update resolved/closed dates
+    }    // Update resolved/closed dates
     if (req.body.status === 'resolved' && !issue.resolvedAt) {
       issue.resolvedAt = Date.now();
     } else if (req.body.status === 'closed' && !issue.closedAt) {
@@ -548,8 +523,9 @@ const getDepartmentIssues = asyncHandler(async (req, res) => {
   if (req.user.role === 'department') {
     query = {
       city: req.user.city,
-      // In future, we could add department-specific filtering here
+      department: req.user.department // Filter by department type
     };
+    console.log(`📋 Filtering issues for ${req.user.department} department in city ${req.user.city}`);
   }
 
   const status = req.query.status;
@@ -580,11 +556,11 @@ const getDepartmentIssues = asyncHandler(async (req, res) => {
 // @access  Private/Department
 const getSLAStatistics = asyncHandler(async (req, res) => {
   const slaManager = require('../utils/slaManager');
-  
+
   try {
     const departmentId = req.user.role === 'department' ? req.user._id : null;
     const stats = await slaManager.getSLAStatistics(departmentId);
-    
+
     res.json(stats);
   } catch (error) {
     console.error('Error getting SLA statistics:', error);
@@ -597,11 +573,11 @@ const getSLAStatistics = asyncHandler(async (req, res) => {
 // @access  Private/Department
 const getOverdueIssues = asyncHandler(async (req, res) => {
   const slaManager = require('../utils/slaManager');
-  
+
   try {
     const departmentId = req.user.role === 'department' ? req.user._id : null;
     const overdueIssues = await slaManager.getOverdueIssues(departmentId);
-    
+
     res.json(overdueIssues);
   } catch (error) {
     console.error('Error getting overdue issues:', error);
@@ -614,11 +590,11 @@ const getOverdueIssues = asyncHandler(async (req, res) => {
 // @access  Private/Department
 const checkAndEscalateIssues = asyncHandler(async (req, res) => {
   const slaManager = require('../utils/slaManager');
-  
+
   try {
     const departmentId = req.user.role === 'department' ? req.user._id : null;
     const results = await slaManager.checkAndEscalateIssues(departmentId);
-    
+
     res.json(results);
   } catch (error) {
     console.error('Error checking and escalating issues:', error);
@@ -631,31 +607,31 @@ const checkAndEscalateIssues = asyncHandler(async (req, res) => {
 // @access  Private/Department
 const updateSLADeadline = asyncHandler(async (req, res) => {
   const slaManager = require('../utils/slaManager');
-  
+
   try {
     const issue = await Issue.findById(req.params.id);
-    
+
     if (!issue) {
       res.status(404);
       throw new Error('Issue not found');
     }
-    
+
     // Check authorization
     if (req.user.role !== 'admin' && req.user.role !== 'department') {
       res.status(403);
       throw new Error('Not authorized to update SLA');
     }
-    
+
     const { priority } = req.body;
-    
+
     if (priority && priority !== issue.priority) {
       const newDeadline = slaManager.updateSLADeadline(issue, priority);
       issue.slaDeadline = newDeadline;
       issue.priority = priority;
-      
+
       await issue.save();
     }
-    
+
     res.json(issue);
   } catch (error) {
     console.error('Error updating SLA deadline:', error);
@@ -669,18 +645,18 @@ const updateSLADeadline = asyncHandler(async (req, res) => {
 const getSLAPgress = asyncHandler(async (req, res) => {
   try {
     const issue = await Issue.findById(req.params.id);
-    
+
     if (!issue) {
       res.status(404);
       throw new Error('Issue not found');
     }
-    
+
     const slaManager = require('../utils/slaManager');
-    
+
     const progress = slaManager.calculateSLAProgress(issue.createdAt, issue.slaDeadline);
     const escalationLevel = slaManager.getEscalationLevel(progress);
     const timeRemaining = slaManager.getTimeRemaining(issue.slaDeadline);
-    
+
     res.json({
       progress,
       escalationLevel,
@@ -692,6 +668,55 @@ const getSLAPgress = asyncHandler(async (req, res) => {
   } catch (error) {
     console.error('Error getting SLA progress:', error);
     res.status(500).json({ message: 'Error fetching SLA progress' });
+  }
+});
+
+// @desc    Get AI department suggestion for an issue
+// @route   POST /api/issues/ai-suggest
+// @access  Private
+const getDepartmentSuggestion = asyncHandler(async (req, res) => {
+  try {
+    const { title, description } = req.body;
+
+    if (!title || !title.trim()) {
+      return res.status(400).json({
+        message: 'Title is required for AI suggestions'
+      });
+    }
+
+    console.log('🤖 Getting AI suggestions for:', title.trim());
+
+    // Call AI service for suggestions
+    const suggestions = await aiEnhancementService.getQuickSuggestions(
+      title.trim(),
+      description?.trim() || ''
+    );
+
+    return res.status(200).json({
+      success: true,
+      suggestions: {
+        category: suggestions.category,
+        priority: suggestions.priority,
+        confidence: suggestions.confidence,
+        department: aiEnhancementService.mapCategoryToDepartment(suggestions.category),
+        aiGenerated: suggestions.aiGenerated
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error getting AI suggestions:', error);
+    // Return fallback suggestions on error
+    return res.status(200).json({
+      success: true,
+      suggestions: {
+        category: 'others',
+        priority: 'medium',
+        confidence: 0.5,
+        department: 'OTHER',
+        aiGenerated: false,
+        error: 'AI service unavailable, using fallback'
+      }
+    });
   }
 });
 
@@ -710,5 +735,6 @@ module.exports = {
   getOverdueIssues,
   checkAndEscalateIssues,
   updateSLADeadline,
-  getSLAPgress
+  getSLAPgress,
+  getDepartmentSuggestion
 };

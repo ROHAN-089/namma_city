@@ -15,7 +15,8 @@ const {
   getOverdueIssues,
   checkAndEscalateIssues,
   updateSLADeadline,
-  getSLAPgress
+  getSLAPgress,
+  getDepartmentSuggestion
 } = require('../controllers/issueController');
 const { protect, department, departmentOrAdmin } = require('../middleware/authMiddleware');
 const { uploadIssueImage } = require('../config/cloudinary');
@@ -23,6 +24,9 @@ const { uploadIssueImage } = require('../config/cloudinary');
 // Public routes
 router.get('/', getIssues);
 router.get('/:id', getIssueById);
+
+// AI Suggestion route (protected)
+router.post('/ai-suggest', protect, getDepartmentSuggestion);
 
 // Protected routes
 router.post('/', protect, uploadIssueImage.array('images', 5), createIssue);

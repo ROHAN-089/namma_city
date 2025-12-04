@@ -9,7 +9,7 @@ const issueSchema = new mongoose.Schema({
   },
   description: {
     type: String,
-    required: [true, 'Please provide a description of the issue'],
+    required: false,
     trim: true,
     maxlength: [1000, 'Description cannot be more than 1000 characters']
   },
@@ -65,6 +65,11 @@ const issueSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
+  department: {
+    type: String,
+    enum: ['ROADS', 'WATER', 'ELECTRICITY', 'SANITATION', 'PUBLIC_SAFETY', 'TRANSPORT', 'HEALTH', 'OTHER'],
+    required: true
+  },
   images: [{
     type: String // URLs to Cloudinary images
   }],
@@ -86,16 +91,20 @@ const issueSchema = new mongoose.Schema({
     description: String
   },
   aiMetadata: {
-    enhancementType: {
-      type: String,
-      enum: ['generated', 'enhanced', 'none'],
-      default: 'none'
+    type: {
+      enhancementType: {
+        type: String,
+        enum: ['generated', 'enhanced', 'none'],
+        default: 'none'
+      },
+      processingTime: Number,
+      reasoning: String,
+      publicImpactScore: String,
+      department: String,
+      confidence: Number
     },
-    processingTime: Number,
-    reasoning: String,
-    publicImpactScore: String,
-    department: String,
-    confidence: Number
+    default: null,
+    required: false
   },
   statusHistory: [{
     status: {
@@ -107,19 +116,24 @@ const issueSchema = new mongoose.Schema({
       ref: 'User'
     },
     note: String,
+    images: [String],
     timestamp: {
       type: Date,
       default: Date.now
     }
   }],
+  statusUpdateImages: [{
+    type: String,
+    description: 'Images uploaded during status updates by departments'
+  }],
   closedAt: Date,
   resolvedAt: Date,
   estimatedCompletionTime: Date,
-  
+
   // SLA Management Fields
   slaDeadline: {
     type: Date,
-    default: function() {
+    default: function () {
       // Calculate SLA deadline based on priority
       const slaHours = {
         'urgent': 24,
@@ -198,12 +212,12 @@ issueSchema.methods.calculateSLAProgress = function () {
   const now = new Date();
   const created = this.createdAt;
   const deadline = this.slaDeadline;
-  
+
   if (!created || !deadline) return 0;
-  
+
   const totalTime = deadline - created;
   const elapsedTime = now - created;
-  
+
   return Math.min(Math.max((elapsedTime / totalTime) * 100, 0), 100);
 };
 
@@ -216,9 +230,9 @@ issueSchema.methods.isSLABreached = function () {
 issueSchema.methods.getTimeRemaining = function () {
   const now = new Date();
   const deadline = this.slaDeadline;
-  
+
   if (!deadline) return null;
-  
+
   const remaining = deadline - now;
   return remaining > 0 ? remaining : 0;
 };
@@ -226,7 +240,7 @@ issueSchema.methods.getTimeRemaining = function () {
 // Method to get escalation level based on SLA progress
 issueSchema.methods.getEscalationLevel = function () {
   const progress = this.calculateSLAProgress();
-  
+
   if (progress >= 100) return 3; // SLA breached
   if (progress >= 80) return 2;  // Urgent
   if (progress >= 50) return 1;  // Warning
@@ -236,7 +250,7 @@ issueSchema.methods.getEscalationLevel = function () {
 // Method to escalate issue
 issueSchema.methods.escalate = function (escalatedBy, reason, action) {
   const newLevel = this.getEscalationLevel();
-  
+
   if (newLevel > this.escalationLevel) {
     this.escalationLevel = newLevel;
     this.escalationHistory.push({
@@ -245,12 +259,12 @@ issueSchema.methods.escalate = function (escalatedBy, reason, action) {
       reason: reason || `Auto-escalated to level ${newLevel}`,
       action: action || 'Automatic escalation'
     });
-    
+
     if (newLevel === 3) {
       this.slaBreached = true;
     }
   }
-  
+
   this.lastEscalationCheck = new Date();
   return this;
 };

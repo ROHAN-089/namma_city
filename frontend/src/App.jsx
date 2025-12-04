@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard/Dashboard';
 import ReportIssue from './pages/ReportIssue/ReportIssue';
 import IssueDetails from './pages/IssueDetails/IssueDetails';
 import MunicipalityDashboard from './pages/MunicipalityDashboard/MunicipalityDashboard';
+import PublicIssuesMap from './pages/PublicIssuesMap/PublicIssuesMap';
 import Profile from './pages/Profile/Profile';
 import PrivateRoute from './components/PrivateRoute/PrivateRoute';
 import RoleBasedRoute from './components/RoleBasedRoute/RoleBasedRoute';
@@ -28,6 +29,7 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/issues-map" element={<PublicIssuesMap />} />
               <Route path="/ai-test" element={<AITestComponent />} />
 
               {/* Citizen routes */}

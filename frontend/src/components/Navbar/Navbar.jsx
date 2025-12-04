@@ -9,7 +9,7 @@ const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const profileDropdownRef = useRef(null);
-  
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -17,7 +17,7 @@ const Navbar = () => {
         setIsProfileOpen(false);
       }
     };
-    
+
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
@@ -40,6 +40,7 @@ const Navbar = () => {
 
             <div className="hidden md:flex items-center space-x-1">
               <Link to="/" className="py-4 px-2 text-white hover:text-blue-200">Home</Link>
+              <Link to="/issues-map" className="py-4 px-2 text-white hover:text-blue-200">Issues Map</Link>
               {user && (
                 <>
                   {user.role === 'citizen' && (
@@ -66,7 +67,7 @@ const Navbar = () => {
           <div className="hidden md:flex items-center space-x-3">
             {user ? (
               <div className="relative" ref={profileDropdownRef}>
-                <button 
+                <button
                   onClick={() => setIsProfileOpen(!isProfileOpen)}
                   className="flex items-center space-x-2 bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-lg transition-colors"
                 >
@@ -96,16 +97,16 @@ const Navbar = () => {
                         </p>
                       )}
                     </div>
-                    <Link 
-                      to="/profile" 
+                    <Link
+                      to="/profile"
                       className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                       onClick={() => setIsProfileOpen(false)}
                     >
                       <FaUser className="mr-3 text-gray-500" />
                       My Profile
                     </Link>
-                    <Link 
-                      to="/settings" 
+                    <Link
+                      to="/settings"
                       className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                       onClick={() => setIsProfileOpen(false)}
                     >
@@ -186,13 +187,20 @@ const Navbar = () => {
               </div>
             </div>
           )}
-          
+
           <Link
             to="/"
             className="block px-3 py-2 rounded text-white hover:bg-blue-700"
             onClick={() => setIsMenuOpen(false)}
           >
             Home
+          </Link>
+          <Link
+            to="/issues-map"
+            className="block px-3 py-2 rounded text-white hover:bg-blue-700"
+            onClick={() => setIsMenuOpen(false)}
+          >
+            Issues Map
           </Link>
           {user && (
             <>
@@ -253,7 +261,7 @@ const Navbar = () => {
             </>
           )}
         </div>
-        
+
         {user ? (
           <div className="py-3 px-4 bg-blue-700">
             <div className="border-t border-blue-600 pt-2 pb-1 mb-2">

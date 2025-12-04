@@ -24,6 +24,7 @@ app.use('/api/cities', require('./routes/cityRoutes'));
 app.use('/api/issues', require('./routes/issueRoutes'));
 app.use('/api/comments', require('./routes/commentRoutes'));
 app.use('/api/ai', require('./routes/aiRoutes')); // AI Enhancement Routes
+app.use('/api/upload', require('./routes/uploadRoutes')); // Upload Routes
 
 // Default route
 app.get('/', (req, res) => {
@@ -44,5 +45,5 @@ app.listen(PORT, () => {
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err, promise) => {
   console.log(`Error: ${err.message}`);
-  
+
 });

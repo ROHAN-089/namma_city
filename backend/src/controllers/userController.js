@@ -7,7 +7,7 @@ const generateToken = require('../utils/generateToken');
 const registerUser = asyncHandler(async (req, res) => {
   console.log('Request body:', req.body);
   console.log('Request file:', req.file);
-  
+
   const { name, email, password, role, phoneNumber, city, department } = req.body;
 
   // Check if user already exists
@@ -17,7 +17,7 @@ const registerUser = asyncHandler(async (req, res) => {
     res.status(400);
     throw new Error('User already exists');
   }
-  
+
   // Handle ID proof file for department registration
   let idProofPath = null;
   if (req.file) {
@@ -31,23 +31,23 @@ const registerUser = asyncHandler(async (req, res) => {
 
   // Handle city data - can be either a city name or an ObjectId
   let cityId = null;
-  
+
   if (city) {
     if (typeof city === 'string') {
       // Find or create the city based on name
       let cityData = await City.findOne({ name: { $regex: new RegExp('^' + city.split(',')[0].trim() + '$', 'i') } });
-      
+
       if (!cityData) {
         // Extract state from city string if it contains comma (e.g., "Mumbai, Maharashtra")
         let state = 'Unknown';
         let cityName = city;
-        
+
         if (city.includes(',')) {
           const parts = city.split(',');
           cityName = parts[0].trim();
           state = parts.length > 1 ? parts[1].trim() : 'Unknown';
         }
-        
+
         // Create a new city if it doesn't exist
         cityData = await City.create({
           name: cityName,
@@ -59,7 +59,7 @@ const registerUser = asyncHandler(async (req, res) => {
           }
         });
       }
-      
+
       cityId = cityData._id;
     } else {
       // If it's already an ObjectId, use it directly
@@ -82,7 +82,7 @@ const registerUser = asyncHandler(async (req, res) => {
   if (user) {
     // Populate city data before returning
     const populatedUser = await User.findById(user._id).populate('city', 'name state');
-    
+
     res.status(201).json({
       _id: populatedUser._id,
       name: populatedUser.name,
@@ -162,7 +162,7 @@ const updateUserProfile = asyncHandler(async (req, res) => {
     user.email = req.body.email || user.email;
     user.phoneNumber = req.body.phoneNumber || user.phoneNumber;
     user.city = req.body.city || user.city;
-    
+
     if (req.body.password) {
       user.password = req.body.password;
     }

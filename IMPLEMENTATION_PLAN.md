@@ -1,9 +1,10 @@
 # 🎯 SMART IMPLEMENTATION ROADMAP
 
 ## Current Stable Foundation ✅
+
 - ✅ User Authentication (admin@cityreporter.com / admin123)
 - ✅ Issue CRUD operations with images
-- ✅ Manual category/priority selection  
+- ✅ Manual category/priority selection
 - ✅ Location handling with coordinates
 - ✅ SLA timers and status tracking
 - ✅ Department assignments
@@ -12,6 +13,7 @@
 ## Phase 2: Smart Enhancements (Non-Breaking)
 
 ### 2A. Backend AI Service (Separate Service)
+
 ```
 backend/src/services/
 ├── aiEnhancementService.js  (NEW - optional AI processing)
@@ -21,6 +23,7 @@ backend/src/services/
 **Strategy**: Create separate optional AI service that enhances existing issues WITHOUT changing core models.
 
 ### 2B. Frontend Smart Assistant (Optional Component)
+
 ```
 frontend/src/components/
 ├── SmartSuggestions/        (NEW - optional AI hints)
@@ -30,6 +33,7 @@ frontend/src/components/
 **Strategy**: Add optional components that provide AI suggestions ALONGSIDE existing manual controls.
 
 ### 2C. Department Auto-Routing (Enhancement)
+
 ```
 backend/src/middleware/
 └── smartRouting.js          (NEW - post-creation enhancement)
@@ -40,11 +44,13 @@ backend/src/middleware/
 ## Phase 3: Advanced Features
 
 ### 3A. Analytics Dashboard
+
 - Issue trend analysis
 - Department performance metrics
 - SLA compliance tracking
 
 ### 3B. Smart Notifications
+
 - Intelligent escalation
 - Citizen updates
 - Department workload balancing

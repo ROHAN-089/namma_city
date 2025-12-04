@@ -21,6 +21,8 @@ const StatusUpdater = ({ issueId, currentStatus, onStatusUpdate, allowedStatuses
     
   const [status, setStatus] = useState(displayStatus);
   const [comment, setComment] = useState('');
+  const [images, setImages] = useState([]);
+  const [imagePreview, setImagePreview] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -39,6 +41,39 @@ const StatusUpdater = ({ issueId, currentStatus, onStatusUpdate, allowedStatuses
     return option ? option.color : 'text-gray-500';
   };
 
+  const handleImageChange = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    // Validate files
+    const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+    const maxSize = 5 * 1024 * 1024; // 5MB
+
+    const invalidFiles = files.filter(file => {
+      if (!validTypes.includes(file.type)) return true;
+      if (file.size > maxSize) return true;
+      return false;
+    });
+
+    if (invalidFiles.length > 0) {
+      setError('Some files are invalid. Please use JPG, PNG, or WebP images under 5MB.');
+      return;
+    }
+
+    // Create preview URLs
+    const previews = files.map(file => URL.createObjectURL(file));
+    setImagePreview(previews);
+    setImages(files);
+    setError('');
+  };
+
+  const removeImage = (index) => {
+    const newImages = images.filter((_, i) => i !== index);
+    const newPreviews = imagePreview.filter((_, i) => i !== index);
+    setImages(newImages);
+    setImagePreview(newPreviews);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -52,14 +87,15 @@ const StatusUpdater = ({ issueId, currentStatus, onStatusUpdate, allowedStatuses
       setError('');
       setSuccess(false);
 
-      // Prepare update data
+      // Prepare update data with images
       const updateData = {
         issueId,
         status,
         comment: comment.trim() || `Status updated to: ${status}`,
         updatedBy: user.id,
         departmentId: user.departmentId,
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        images: images
       };
 
           // Call the callback function if provided - directly, no simulation
@@ -68,9 +104,10 @@ const StatusUpdater = ({ issueId, currentStatus, onStatusUpdate, allowedStatuses
           // Log the exact data we're sending
           console.log(`StatusUpdater: Updating status to ${status}`);
           console.log('StatusUpdater: Comment:', comment.trim() || `Status updated to: ${status}`);
+          console.log('StatusUpdater: Images:', images.length);
           
-          // Call the parent component's update function
-          const result = await onStatusUpdate(status, comment.trim() || `Status updated to: ${status}`);
+          // Call the parent component's update function with images
+          const result = await onStatusUpdate(status, comment.trim() || `Status updated to: ${status}`, images);
           
           // Check if the update was successful
           if (result === false) {
@@ -83,6 +120,8 @@ const StatusUpdater = ({ issueId, currentStatus, onStatusUpdate, allowedStatuses
           setIsSubmitting(false);
           setSuccess(true);
           setComment('');
+          setImages([]);
+          setImagePreview([]);
           
           // Reset success message after 3 seconds
           setTimeout(() => {
@@ -163,6 +202,44 @@ const StatusUpdater = ({ issueId, currentStatus, onStatusUpdate, allowedStatuses
             onChange={(e) => setComment(e.target.value)}
             disabled={isSubmitting}
           />
+        </div>
+
+        <div className="mb-4">
+          <label htmlFor="images" className="block text-sm font-medium text-gray-700 mb-1">
+            Upload Progress Images (Optional)
+          </label>
+          <input
+            id="images"
+            type="file"
+            accept="image/jpeg,image/png,image/jpg,image/webp"
+            multiple
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onChange={handleImageChange}
+            disabled={isSubmitting}
+          />
+          <p className="text-xs text-gray-500 mt-1">Max 5MB per image, JPG/PNG/WebP only</p>
+          
+          {imagePreview.length > 0 && (
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              {imagePreview.map((preview, index) => (
+                <div key={index} className="relative">
+                  <img
+                    src={preview}
+                    alt={`Preview ${index + 1}`}
+                    className="w-full h-20 object-cover rounded"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeImage(index)}
+                    className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                    disabled={isSubmitting}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         
         <div className="flex items-center justify-end">

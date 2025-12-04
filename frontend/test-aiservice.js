@@ -5,20 +5,20 @@ console.log('🧪 Testing aiService exports...');
 
 // Check if all expected functions exist
 const expectedFunctions = [
-  'checkAIStatus',
-  'getQuickSuggestions', 
-  'enhanceIssue',
-  'testAIService',
-  'suggestDepartment',
-  'suggestPriority'
+    'checkAIStatus',
+    'getQuickSuggestions',
+    'enhanceIssue',
+    'testAIService',
+    'suggestDepartment',
+    'suggestPriority'
 ];
 
 expectedFunctions.forEach(func => {
-  if (typeof aiService[func] === 'function') {
-    console.log(`✅ ${func} - OK`);
-  } else {
-    console.log(`❌ ${func} - MISSING or NOT A FUNCTION`);
-  }
+    if (typeof aiService[func] === 'function') {
+        console.log(`✅ ${func} - OK`);
+    } else {
+        console.log(`❌ ${func} - MISSING or NOT A FUNCTION`);
+    }
 });
 
 console.log('\n📊 Export check complete!');

@@ -5,7 +5,6 @@ import { createIssue } from '../../services/issueService';
 import { indianCities } from '../../data/indianCities';
 import { toast } from 'react-toastify';
 import { FaLocationArrow, FaMapMarkerAlt } from 'react-icons/fa';
-import SmartSuggestions from '../SmartSuggestions/SmartSuggestions';
 
 const IssueForm = () => {
   const [formData, setFormData] = useState({
@@ -22,8 +21,8 @@ const IssueForm = () => {
     images: []
   });
 
-  const [useAI, setUseAI] = useState(true); // AI processing enabled by default
-  const [aiInsights, setAiInsights] = useState(null);
+  const [aiSuggestions, setAiSuggestions] = useState(null);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -91,6 +90,42 @@ const IssueForm = () => {
       [field]: value
     }));
     toast.success(`Applied AI suggestion for ${field}: ${value}`);
+  };
+
+  // Get AI department suggestions
+  const getAISuggestions = async () => {
+    if (!formData.title.trim()) {
+      toast.error('Please enter a title first');
+      return;
+    }
+
+    try {
+      setLoadingSuggestions(true);
+
+      const response = await fetch('http://localhost:5000/api/issues/ai-suggest', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('userToken')}`
+        },
+        body: JSON.stringify({
+          title: formData.title.trim(),
+          description: formData.description.trim()
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.suggestions) {
+        setAiSuggestions(data.suggestions);
+        toast.success(`AI suggests: ${data.suggestions.department} department (${Math.round(data.suggestions.confidence * 100)}% confident)`);
+      }
+    } catch (error) {
+      console.error('Error getting AI suggestions:', error);
+      toast.error('Could not get AI suggestions');
+    } finally {
+      setLoadingSuggestions(false);
+    }
   };
 
   // Get current location using browser's geolocation API
@@ -166,7 +201,7 @@ const IssueForm = () => {
       // If user has a city in their profile, try to find a matching city
       // Check if user.city is an object (with name property) or a string
       const cityName = typeof user.city === 'string' ? user.city : (user.city.name || '');
-      
+
       if (cityName) {
         const userCity = cities.find(city => city.name.toLowerCase() === cityName.toLowerCase());
         if (userCity) {
@@ -192,10 +227,11 @@ const IssueForm = () => {
       return false;
     }
 
-    if (!formData.description.trim()) {
-      setError('Please provide a description of the issue');
-      return false;
-    }
+    // Description is now optional
+    // if (!formData.description.trim()) {
+    //   setError('Please provide a description of the issue');
+    //   return false;
+    // }
 
     if (!formData.category) {
       setError('Please select a category');
@@ -248,23 +284,16 @@ const IssueForm = () => {
           ],
           address: formData.location.address
         },
-        images: formData.images,
-        useAI: useAI // Use AI processing based on toggle
+        images: formData.images
       };
-      
-      console.log('🚀 Submitting issue with AI processing:', { useAI, title: issueData.title });
+
+      console.log('🚀 Submitting issue:', { title: issueData.title });
 
       // Call API to create the issue
       const result = await createIssue(issueData);
 
-      // Store AI insights if available
-      if (result.aiInsights) {
-        setAiInsights(result.aiInsights);
-        toast.success(`Issue enhanced by AI and reported successfully! Routed to ${result.aiInsights.department} department.`);
-      } else {
-        toast.success('Issue reported successfully!');
-      }
-      
+      toast.success('Issue reported successfully!');
+
       setSuccess(true);
 
       // Reset form or redirect
@@ -314,7 +343,7 @@ const IssueForm = () => {
             </div>
             <div className="ml-3">
               <h3 className="text-sm font-medium text-green-800">
-                Issue reported successfully! 
+                Issue reported successfully!
               </h3>
               {aiInsights && (
                 <div className="mt-2 text-sm text-green-700">
@@ -350,56 +379,85 @@ const IssueForm = () => {
 
             <div className="md:col-span-2">
               <label htmlFor="description" className="block text-gray-700 text-sm font-medium mb-2">
-                Issue Description*
+                Issue Description <span className="text-gray-500 text-xs">(Optional)</span>
               </label>
               <textarea
                 id="description"
                 name="description"
                 rows="4"
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Please provide details of the issue..."
+                placeholder="Please provide details of the issue (optional)..."
                 value={formData.description}
                 onChange={handleChange}
-                required
               />
             </div>
 
-            {/* AI Smart Suggestions - Non-breaking enhancement */}
+            {/* AI Suggestions Button */}
             <div className="md:col-span-2">
-              <SmartSuggestions
-                title={formData.title}
-                description={formData.description}
-                currentCategory={formData.category}
-                currentPriority={formData.priority}
-                onSuggestionAccept={handleSuggestionAccept}
-              />
-            </div>
-
-            {/* AI Processing Toggle */}
-            <div className="md:col-span-2">
-              <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <div>
-                  <label htmlFor="useAI" className="text-sm font-medium text-blue-900">
-                    🤖 AI Enhancement
-                  </label>
-                  <p className="text-xs text-blue-700 mt-1">
-                    Let Gemini AI improve your issue description and auto-route to the right department
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setUseAI(!useAI)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    useAI ? 'bg-blue-600' : 'bg-gray-300'
+              <button
+                type="button"
+                onClick={getAISuggestions}
+                disabled={loadingSuggestions || !formData.title.trim()}
+                className={`w-full flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors ${loadingSuggestions || !formData.title.trim()
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700'
                   }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      useAI ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
+              >
+                {loadingSuggestions ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Getting AI Suggestions...
+                  </>
+                ) : (
+                  <>
+                    🤖 Get AI Department Suggestion
+                  </>
+                )}
+              </button>
+
+              {/* Display AI Suggestions */}
+              {aiSuggestions && (
+                <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-lg">
+                  <h3 className="text-sm font-semibold text-blue-900 mb-2">AI Suggestions</h3>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-700">
+                        <strong>Department:</strong> {aiSuggestions.department}
+                      </span>
+                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                        {Math.round(aiSuggestions.confidence * 100)}% confident
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-700">
+                        <strong>Category:</strong> {aiSuggestions.category}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleSuggestionAccept('category', aiSuggestions.category)}
+                        className="text-xs bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600"
+                      >
+                        Apply
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-700">
+                        <strong>Priority:</strong> {aiSuggestions.priority}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleSuggestionAccept('priority', aiSuggestions.priority)}
+                        className="text-xs bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600"
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div>

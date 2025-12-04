@@ -1,7 +1,7 @@
 // Google Gemini API Configuration
 export const GEMINI_API_CONFIG = {
   API_KEY: import.meta.env.VITE_GEMINI_API_KEY,
-  MODEL: 'gemini-pro',
+  MODEL: 'gemini-2.5-flash',
   MAX_TOKENS: 200
 };
 

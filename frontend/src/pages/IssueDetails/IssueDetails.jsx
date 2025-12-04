@@ -169,7 +169,7 @@ const IssueDetails = () => {
   };
 
   // Ultra-simple status update function
-  const handleStatusUpdate = async (newStatus, comment) => {
+  const handleStatusUpdate = async (newStatus, comment, images = []) => {
     try {
       // Map frontend display names to backend status codes
       const statusMap = {
@@ -184,11 +184,44 @@ const IssueDetails = () => {
         console.error('Invalid status:', newStatus);
         return false;
       }
+
+      // If there are images, we need to upload them first using backend
+      let uploadedImageUrls = [];
+      if (images && images.length > 0) {
+        console.log('Uploading', images.length, 'images via backend...');
+        
+        const formData = new FormData();
+        images.forEach((image, index) => {
+          formData.append('images', image);
+        });
+        
+        try {
+          const token = localStorage.getItem('userToken');
+          const uploadResponse = await fetch('http://localhost:5000/api/upload/status-images', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            },
+            body: formData
+          });
+          
+          if (uploadResponse.ok) {
+            const uploadData = await uploadResponse.json();
+            uploadedImageUrls = uploadData.imageUrls || [];
+            console.log('Uploaded image URLs:', uploadedImageUrls);
+          } else {
+            console.error('Failed to upload images');
+          }
+        } catch (uploadError) {
+          console.error('Error uploading images:', uploadError);
+        }
+      }
       
       // Create a minimal payload that exactly matches what the backend expects
       const payload = {
         status: backendStatus,
-        statusNote: comment || `Status updated to ${newStatus}`
+        statusNote: comment || `Status updated to ${newStatus}`,
+        statusImages: uploadedImageUrls
       };
       
       console.log('Status update payload:', payload);

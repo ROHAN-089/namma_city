@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import IssueCard from '../../components/IssueCard/IssueCard';
+import IssuesMap from '../../components/IssuesMap/IssuesMap';
 import { motion } from 'framer-motion';
-import { FaMapPin, FaCheckCircle, FaExclamationCircle, FaSpinner, FaPlus, FaSync } from 'react-icons/fa';
+import { FaMapPin, FaCheckCircle, FaExclamationCircle, FaSpinner, FaPlus, FaSync, FaMap, FaList } from 'react-icons/fa';
 import { getUserIssues } from '../../services/issueService';
 import { toast } from 'react-toastify';
 
@@ -19,8 +20,9 @@ const Dashboard = () => {
     resolved: 0
   });
   const [activeFilter, setActiveFilter] = useState('all');
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'map'
   const location = useLocation();
-  
+
   // Show loading state while checking auth
   if (loading) {
     return (
@@ -29,7 +31,7 @@ const Dashboard = () => {
       </div>
     );
   }
-  
+
   // Redirect if not logged in
   if (!user) {
     return <Navigate to="/login" />;
@@ -43,13 +45,13 @@ const Dashboard = () => {
       } else {
         setLoadingIssues(true);
       }
-      
+
       // Call the API to get the user's issues
       const response = await getUserIssues();
       const issues = response.issues || [];
-      
+
       setUserIssues(issues);
-      
+
       // Calculate stats
       setStats({
         total: issues.length,
@@ -57,7 +59,7 @@ const Dashboard = () => {
         inProgress: issues.filter(issue => issue.status === 'in_progress').length,
         resolved: issues.filter(issue => issue.status === 'resolved').length
       });
-      
+
     } catch (err) {
       console.error('Error fetching user issues:', err);
       toast.error('Failed to load issues. Please try again.');
@@ -66,19 +68,19 @@ const Dashboard = () => {
       setRefreshing(false);
     }
   };
-  
+
   // Fetch issues when component mounts
   useEffect(() => {
     if (user) {
       fetchUserIssues();
     }
   }, [user]);
-  
+
   // Refresh issues when navigating back to the dashboard
   useEffect(() => {
     // If the user came back to dashboard (likely after reporting an issue)
     const justReturned = location.state?.from === 'report-issue';
-    
+
     if (justReturned && user) {
       fetchUserIssues();
     }
@@ -102,14 +104,14 @@ const Dashboard = () => {
               {user.role === 'citizen' ? 'My Dashboard' : 'Department Dashboard'}
             </h1>
             <p className="text-gray-600 mt-1">
-              {user.role === 'citizen' 
+              {user.role === 'citizen'
                 ? 'Manage and track your reported issues'
                 : 'Manage and track assigned issues for your department'}
             </p>
           </div>
-          
+
           <div className="flex space-x-3 mt-4 md:mt-0">
-            <button 
+            <button
               onClick={() => fetchUserIssues(true)}
               className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md font-medium hover:bg-gray-200 transition-colors inline-flex items-center"
               disabled={refreshing}
@@ -117,7 +119,7 @@ const Dashboard = () => {
               <FaSync className={`mr-2 ${refreshing ? 'animate-spin' : ''}`} />
               {refreshing ? 'Refreshing...' : 'Refresh'}
             </button>
-            
+
             {user.role === 'citizen' && (
               <Link
                 to="/report-issue"
@@ -129,7 +131,7 @@ const Dashboard = () => {
             )}
           </div>
         </div>
-        
+
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <motion.div
@@ -152,7 +154,7 @@ const Dashboard = () => {
               </div>
             )}
           </motion.div>
-          
+
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -169,7 +171,7 @@ const Dashboard = () => {
               </div>
             </div>
           </motion.div>
-          
+
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -186,7 +188,7 @@ const Dashboard = () => {
               </div>
             </div>
           </motion.div>
-          
+
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -204,54 +206,77 @@ const Dashboard = () => {
             </div>
           </motion.div>
         </div>
-        
-        {/* Filter Tabs */}
+
+        {/* Filter Tabs and View Toggle */}
         <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6">
-          <div className="flex flex-wrap">
-            <button
-              className={`px-4 py-2 rounded-md mr-2 mb-2 ${
-                activeFilter === 'all'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-              onClick={() => setActiveFilter('all')}
-            >
-              All Issues
-            </button>
-            <button
-              className={`px-4 py-2 rounded-md mr-2 mb-2 ${
-                activeFilter === 'open'
-                  ? 'bg-red-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-              onClick={() => setActiveFilter('open')}
-            >
-              Open
-            </button>
-            <button
-              className={`px-4 py-2 rounded-md mr-2 mb-2 ${
-                activeFilter === 'inProgress'
-                  ? 'bg-yellow-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-              onClick={() => setActiveFilter('inProgress')}
-            >
-              In Progress
-            </button>
-            <button
-              className={`px-4 py-2 rounded-md mb-2 ${
-                activeFilter === 'resolved'
-                  ? 'bg-green-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-              onClick={() => setActiveFilter('resolved')}
-            >
-              Resolved
-            </button>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+            {/* Filter Buttons */}
+            <div className="flex flex-wrap mb-4 sm:mb-0">
+              <button
+                className={`px-4 py-2 rounded-md mr-2 mb-2 ${activeFilter === 'all'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                onClick={() => setActiveFilter('all')}
+              >
+                All Issues
+              </button>
+              <button
+                className={`px-4 py-2 rounded-md mr-2 mb-2 ${activeFilter === 'open'
+                    ? 'bg-red-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                onClick={() => setActiveFilter('open')}
+              >
+                Open
+              </button>
+              <button
+                className={`px-4 py-2 rounded-md mr-2 mb-2 ${activeFilter === 'inProgress'
+                    ? 'bg-yellow-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                onClick={() => setActiveFilter('inProgress')}
+              >
+                In Progress
+              </button>
+              <button
+                className={`px-4 py-2 rounded-md mb-2 ${activeFilter === 'resolved'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                onClick={() => setActiveFilter('resolved')}
+              >
+                Resolved
+              </button>
+            </div>
+
+            {/* View Toggle */}
+            <div className="flex bg-gray-100 rounded-md p-1">
+              <button
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${viewMode === 'list'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                onClick={() => setViewMode('list')}
+              >
+                <FaList className="inline mr-2" />
+                List View
+              </button>
+              <button
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${viewMode === 'map'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                onClick={() => setViewMode('map')}
+              >
+                <FaMap className="inline mr-2" />
+                Map View
+              </button>
+            </div>
           </div>
         </div>
-        
-        {/* Issues List */}
+
+        {/* Issues Display */}
         <div>
           {loadingIssues ? (
             <div className="flex justify-center items-center py-20">
@@ -264,11 +289,11 @@ const Dashboard = () => {
               </svg>
               <h3 className="mt-2 text-sm font-medium text-gray-900">No issues found</h3>
               <p className="mt-1 text-sm text-gray-500">
-                {activeFilter === 'all' 
+                {activeFilter === 'all'
                   ? 'You haven\'t reported any issues yet.'
                   : `You don\'t have any ${activeFilter === 'resolved' ? 'resolved' : activeFilter === 'inProgress' ? 'in progress' : 'open'} issues.`}
               </p>
-              {activeFilter === 'all' && (
+              {activeFilter === 'all' && user.role === 'citizen' && (
                 <div className="mt-6">
                   <Link
                     to="/report-issue"
@@ -281,23 +306,48 @@ const Dashboard = () => {
               )}
             </div>
           ) : (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ staggerChildren: 0.1 }}
-              className="space-y-6"
-            >
-              {filteredIssues.map((issue) => (
+            <>
+              {/* List View */}
+              {viewMode === 'list' && (
                 <motion.div
-                  key={issue.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ staggerChildren: 0.1 }}
+                  className="space-y-6"
+                >
+                  {filteredIssues.map((issue) => (
+                    <motion.div
+                      key={issue._id || issue.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <IssueCard issue={issue} />
+                    </motion.div>
+                  ))}
+                </motion.div>
+              )}
+
+              {/* Map View */}
+              {viewMode === 'map' && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <IssueCard issue={issue} />
+                  <IssuesMap
+                    issues={filteredIssues}
+                    height="600px"
+                    showControls={false}
+                    onIssueSelect={(issue) => {
+                      // Navigate to issue details or show modal
+                      console.log('Selected issue:', issue);
+                      // You can add navigation to issue details here
+                    }}
+                  />
                 </motion.div>
-              ))}
-            </motion.div>
+              )}
+            </>
           )}
         </div>
       </div>

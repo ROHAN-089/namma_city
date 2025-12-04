@@ -41,6 +41,8 @@ const userSchema = new mongoose.Schema({
   },
   department: {
     type: String,
+    enum: ['ROADS', 'WATER', 'ELECTRICITY', 'SANITATION', 'PUBLIC_SAFETY', 'TRANSPORT', 'HEALTH', 'OTHER'],
+    uppercase: true,
     // Only required if role is department
     required: function() {
       return this.role === 'department';
@@ -90,6 +92,11 @@ userSchema.virtual('issues', {
 
 // Hash the password before saving
 userSchema.pre('save', async function(next) {
+  // Convert department to uppercase if present
+  if (this.department) {
+    this.department = this.department.toUpperCase();
+  }
+  
   // Only hash the password if it has been modified (or is new)
   if (!this.isModified('password')) return next();
   
