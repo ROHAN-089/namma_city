@@ -34,16 +34,16 @@ async function updateDepartments() {
 
         // Find all department users
         const deptUsers = await User.find({ role: 'department' });
-        
+
         console.log(`Found ${deptUsers.length} department users\n`);
-        
+
         let updatedCount = 0;
-        
+
         for (const user of deptUsers) {
             const oldDept = user.department;
             const lowerDept = oldDept ? oldDept.toLowerCase() : '';
             const newDept = mapping[lowerDept] || oldDept?.toUpperCase() || 'OTHER';
-            
+
             if (oldDept !== newDept) {
                 user.department = newDept;
                 await user.save();
@@ -54,7 +54,7 @@ async function updateDepartments() {
                 console.log(`✓ No change needed: ${user.name} (${user.email}) - already ${newDept}\n`);
             }
         }
-        
+
         console.log(`\n🎯 Summary: Updated ${updatedCount} out of ${deptUsers.length} department users`);
 
     } catch (error) {

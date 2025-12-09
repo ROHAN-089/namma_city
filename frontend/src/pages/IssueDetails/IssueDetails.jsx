@@ -5,18 +5,18 @@ import { useAuth } from '../../context/AuthContext';
 import StatusUpdater from '../../components/StatusUpdater/StatusUpdater';
 import CommentBox from '../../components/CommentBox/CommentBox';
 import { motion } from 'framer-motion';
-import { 
-  FaMapMarkerAlt, 
-  FaCalendarAlt, 
-  FaUser, 
-  FaBuilding, 
-  FaArrowLeft, 
-  FaExclamationCircle, 
-  FaThumbsUp, 
-  FaCamera, 
+import {
+  FaMapMarkerAlt,
+  FaCalendarAlt,
+  FaUser,
+  FaBuilding,
+  FaArrowLeft,
+  FaExclamationCircle,
+  FaThumbsUp,
+  FaCamera,
   FaInfoCircle,
   FaCheckCircle,
-  FaSpinner 
+  FaSpinner
 } from 'react-icons/fa';
 import { getIssueById, upvoteIssue, updateIssue, verifyAndCloseIssue } from '../../services/issueService';
 
@@ -24,7 +24,7 @@ const IssueDetails = () => {
   const { id } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
-  
+
   const [issue, setIssue] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -43,13 +43,13 @@ const IssueDetails = () => {
     try {
       setLoading(true);
       const data = await getIssueById(id);
-      
+
       if (data) {
         setIssue(data);
         setUpvotes(data.upvotes?.length || 0);
         setUpvoted(user && data.upvotes?.includes(user._id));
       }
-      
+
       setLoading(false);
     } catch (err) {
       console.error('Error fetching issue details:', err);
@@ -61,7 +61,7 @@ const IssueDetails = () => {
   // Format date for display
   const formatDate = (dateString) => {
     if (!dateString) return 'Not available';
-    
+
     const date = new Date(dateString);
     return new Intl.DateTimeFormat('en-US', {
       year: 'numeric',
@@ -75,7 +75,7 @@ const IssueDetails = () => {
   // Get display status from backend status
   const getDisplayStatus = () => {
     if (!issue || !issue.status) return 'Unknown';
-    
+
     // Map backend status to display status
     const statusMap = {
       'reported': 'Open',
@@ -84,14 +84,14 @@ const IssueDetails = () => {
       'reopened': 'Open',
       'closed': 'Resolved'
     };
-    
+
     return statusMap[issue.status] || issue.status.charAt(0).toUpperCase() + issue.status.slice(1);
   };
-  
+
   // Map backend status to a user-friendly display version
   const mapStatusForDisplay = (status) => {
     if (!status) return 'Unknown';
-    
+
     const statusMap = {
       'reported': 'Open',
       'in_progress': 'In Progress',
@@ -99,14 +99,14 @@ const IssueDetails = () => {
       'reopened': 'Open',
       'closed': 'Resolved'
     };
-    
+
     return statusMap[status] || status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ');
   };
 
   // Get status styles (colors, icons) based on status
   const getStatusStyles = (status) => {
     const displayStatus = typeof status === 'string' ? status : getDisplayStatus();
-    
+
     const styles = {
       'Open': {
         bg: 'bg-red-100',
@@ -124,7 +124,7 @@ const IssueDetails = () => {
         icon: <span className="mr-1">🟢</span>
       }
     };
-    
+
     return styles[displayStatus] || styles['Open'];
   };
 
@@ -136,7 +136,7 @@ const IssueDetails = () => {
       3: 'High',
       4: 'Critical'
     };
-    
+
     return priorities[priority] || 'Not set';
   };
 
@@ -146,19 +146,19 @@ const IssueDetails = () => {
       navigate('/login', { state: { from: `/issues/${id}` } });
       return;
     }
-    
+
     try {
       await upvoteIssue(id);
-      
+
       // Optimistic update
       if (upvoted) {
         setUpvotes(prev => prev - 1);
       } else {
         setUpvotes(prev => prev + 1);
       }
-      
+
       setUpvoted(!upvoted);
-      
+
       // Refresh to get the actual server state after a delay
       setTimeout(() => {
         fetchIssueDetails();
@@ -169,7 +169,7 @@ const IssueDetails = () => {
   };
 
   // Ultra-simple status update function
-  const handleStatusUpdate = async (newStatus, comment, images = []) => {
+  const handleStatusUpdate = async (newStatus, comment, images = [], location = '') => {
     try {
       // Map frontend display names to backend status codes
       const statusMap = {
@@ -177,7 +177,7 @@ const IssueDetails = () => {
         'In Progress': 'in_progress',
         'Resolved': 'resolved'
       };
-      
+
       // The backend status value
       const backendStatus = statusMap[newStatus];
       if (!backendStatus) {
@@ -189,12 +189,12 @@ const IssueDetails = () => {
       let uploadedImageUrls = [];
       if (images && images.length > 0) {
         console.log('Uploading', images.length, 'images via backend...');
-        
+
         const formData = new FormData();
         images.forEach((image, index) => {
           formData.append('images', image);
         });
-        
+
         try {
           const token = localStorage.getItem('userToken');
           const uploadResponse = await fetch('http://localhost:5000/api/upload/status-images', {
@@ -204,7 +204,7 @@ const IssueDetails = () => {
             },
             body: formData
           });
-          
+
           if (uploadResponse.ok) {
             const uploadData = await uploadResponse.json();
             uploadedImageUrls = uploadData.imageUrls || [];
@@ -216,16 +216,17 @@ const IssueDetails = () => {
           console.error('Error uploading images:', uploadError);
         }
       }
-      
+
       // Create a minimal payload that exactly matches what the backend expects
       const payload = {
         status: backendStatus,
         statusNote: comment || `Status updated to ${newStatus}`,
-        statusImages: uploadedImageUrls
+        statusImages: uploadedImageUrls,
+        locationUpdate: location || null
       };
-      
+
       console.log('Status update payload:', payload);
-      
+
       // Make a direct fetch API call with the correct token key from localStorage
       const token = localStorage.getItem('userToken'); // This was the issue - wrong token key
       const response = await fetch(`http://localhost:5000/api/issues/${id}`, {
@@ -236,18 +237,18 @@ const IssueDetails = () => {
         },
         body: JSON.stringify(payload)
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to update status');
       }
-      
+
       const data = await response.json();
       console.log('Status update succeeded:', data);
-      
+
       // Update the UI
       await fetchIssueDetails();
-      
+
       return true;
     } catch (error) {
       console.error('Status update failed:', error);
@@ -261,27 +262,27 @@ const IssueDetails = () => {
       setError('User or issue information missing');
       return;
     }
-    
+
     // Only the reporter can verify and close
     if (issue.reportedBy && user._id !== issue.reportedBy._id) {
       setError('Only the issue reporter can verify and close this issue');
       setShowFeedbackModal(false);
       return;
     }
-    
+
     try {
       setClosingIssue(true);
-      
+
       // Add a delay to ensure state updates properly
       const result = await verifyAndCloseIssue(id, closeFeedback);
       console.log('Verification result:', result);
-      
+
       // Close the modal first
       setShowFeedbackModal(false);
-      
+
       // Use a more reliable direct navigation method
       window.location.href = '/issues';
-      
+
       // No need for the navigate() call which seems to be failing
     } catch (error) {
       console.error('Failed to verify and close issue:', error);
@@ -290,21 +291,21 @@ const IssueDetails = () => {
       setError(error.message || 'Failed to close issue. Please try again.');
     }
   };
-  
+
   // Feedback Modal Component
   const FeedbackModal = () => {
     // Local state for modal errors
     const [modalError, setModalError] = useState(null);
-    
+
     // Reset error when modal closes
     useEffect(() => {
       if (!showFeedbackModal) {
         setModalError(null);
       }
     }, [showFeedbackModal]);
-    
+
     if (!showFeedbackModal) return null;
-    
+
     // Safe close function
     const handleSafeClose = () => {
       if (closingIssue) return; // Prevent closing while processing
@@ -312,7 +313,7 @@ const IssueDetails = () => {
       setCloseFeedback('');
       setModalError(null);
     };
-    
+
     // Wrapper for verify and close with error handling
     const handleSafeVerifyAndClose = async () => {
       try {
@@ -322,17 +323,17 @@ const IssueDetails = () => {
         setModalError(err.message || 'An unexpected error occurred');
       }
     };
-    
+
     return (
       <div className="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50 p-4">
-        <div 
+        <div
           className="bg-white rounded-lg shadow-xl max-w-md w-full p-6"
           onClick={(e) => e.stopPropagation()} // Prevent clicks from bubbling
         >
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-xl font-bold text-blue-600">Verify & Close Issue</h3>
             {!closingIssue && (
-              <button 
+              <button
                 onClick={handleSafeClose}
                 className="text-gray-400 hover:text-gray-600"
                 aria-label="Close"
@@ -341,19 +342,19 @@ const IssueDetails = () => {
               </button>
             )}
           </div>
-          
+
           {modalError && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-md text-sm">
               <FaExclamationCircle className="inline-block mr-2" />
               {modalError}
             </div>
           )}
-          
+
           <p className="text-gray-600 mb-4">
             You're about to verify that this issue has been resolved and close it. The issue will be removed from the system.
             Would you like to provide any feedback?
           </p>
-          
+
           <textarea
             className="w-full border border-gray-300 rounded-md p-3 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
             rows="3"
@@ -366,7 +367,7 @@ const IssueDetails = () => {
           <div className="text-xs text-gray-500 mb-4">
             {closeFeedback.length}/500 characters
           </div>
-          
+
           <div className="flex justify-end space-x-3">
             <button
               onClick={handleSafeClose}
@@ -419,8 +420,8 @@ const IssueDetails = () => {
             <div>
               <p className="font-bold">Error</p>
               <p className="text-sm">{error}</p>
-              <button 
-                onClick={() => window.location.reload()} 
+              <button
+                onClick={() => window.location.reload()}
                 className="mt-2 inline-flex items-center px-3 py-1 border border-red-300 text-red-700 bg-red-50 rounded-md hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
               >
                 Try Again
@@ -439,8 +440,8 @@ const IssueDetails = () => {
           <FaExclamationCircle className="inline mr-2" />
           Issue not found. It may have been removed or you don't have permission to view it.
         </div>
-        <button 
-          onClick={() => navigate('/')} 
+        <button
+          onClick={() => navigate('/')}
           className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
         >
           <FaArrowLeft className="mr-2" /> Back to Issues
@@ -455,13 +456,13 @@ const IssueDetails = () => {
       <div className="container mx-auto px-4 py-8 bg-gray-50">
         {/* Back button */}
         <div className="mb-6 flex justify-between items-center bg-white p-3 rounded-lg shadow-sm">
-          <button 
-            onClick={() => navigate('/')} 
+          <button
+            onClick={() => navigate('/')}
             className="inline-flex items-center px-3 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm"
           >
             <FaArrowLeft className="mr-2" /> Back to Issues
           </button>
-          
+
           <div className="text-sm text-gray-500">
             <span className="inline-flex items-center">
               <FaCalendarAlt className="mr-1" /> Last updated: {formatDate(issue.updatedAt || issue.createdAt)}
@@ -521,7 +522,7 @@ const IssueDetails = () => {
                 {issue.images && issue.images.length > 0 && (
                   <div className="mb-6">
                     <h3 className="text-lg font-medium text-blue-600 mb-3 flex items-center">
-                      <FaCamera className="mr-2" /> Images
+                      <FaCamera className="mr-2" /> Initial Report Images
                     </h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {issue.images.map((image, index) => (
@@ -537,31 +538,96 @@ const IssueDetails = () => {
                   </div>
                 )}
 
+                {/* Status Update Images */}
+                {issue.statusUpdateImages && issue.statusUpdateImages.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-lg font-medium text-green-600 mb-3 flex items-center">
+                      <FaCamera className="mr-2" /> Progress Update Images
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {issue.statusUpdateImages.map((image, index) => (
+                        <div key={index} className="relative h-48 bg-gray-100 rounded-lg overflow-hidden border-2 border-green-200">
+                          <img
+                            src={image}
+                            alt={`Update ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                            <span className="text-white text-xs font-medium">Department Update</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Status History with Images */}
+                {issue.statusHistory && issue.statusHistory.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-lg font-medium text-gray-700 mb-3">Status History</h3>
+                    <div className="space-y-3">
+                      {issue.statusHistory.slice().reverse().map((history, index) => (
+                        <div key={index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-medium text-gray-800 capitalize">
+                              {history.status?.replace(/_/g, ' ')}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {formatDate(history.timestamp)}
+                            </span>
+                          </div>
+                          {history.note && (
+                            <p className="text-sm text-gray-600 mb-2">{history.note}</p>
+                          )}
+                          {history.locationUpdate && (
+                            <p className="text-xs text-blue-600 mb-2 flex items-center">
+                              <FaMapMarkerAlt className="mr-1" />
+                              {history.locationUpdate}
+                            </p>
+                          )}
+                          {history.images && history.images.length > 0 && (
+                            <div className="grid grid-cols-3 gap-2 mt-3">
+                              {history.images.map((img, imgIndex) => (
+                                <div key={imgIndex} className="relative h-20 bg-gray-200 rounded overflow-hidden">
+                                  <img
+                                    src={img}
+                                    alt={`Status update ${imgIndex + 1}`}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center pt-4 border-t border-gray-200">
                   <button
                     onClick={handleUpvote}
-                    className={`flex items-center px-4 py-2 border rounded-md mr-4 transition-all duration-200 ${
-                      upvoted
-                        ? 'bg-blue-50 text-blue-700 border-blue-300 shadow-sm'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                    }`}
+                    className={`flex items-center px-4 py-2 border rounded-md mr-4 transition-all duration-200 ${upvoted
+                      ? 'bg-blue-50 text-blue-700 border-blue-300 shadow-sm'
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      }`}
                   >
                     <FaThumbsUp className={`mr-2 ${upvoted ? 'text-blue-600' : 'text-gray-500'}`} />
                     <span className="font-medium">{upvotes}</span> <span>{upvotes === 1 ? 'Upvote' : 'Upvotes'}</span>
                   </button>
-                  
+
                   {/* Verify and Close button - only shown to the issue reporter when issue is resolved */}
-                  {user && issue.reportedBy && 
-                  user._id === issue.reportedBy._id && 
-                  issue.status === 'resolved' && (
-                    <button
-                      onClick={() => setShowFeedbackModal(true)}
-                      className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-all duration-200 shadow-sm"
-                    >
-                      <FaCheckCircle className="mr-2" />
-                      Verify & Close Issue
-                    </button>
-                  )}
+                  {user && issue.reportedBy &&
+                    user._id === issue.reportedBy._id &&
+                    issue.status === 'resolved' && (
+                      <button
+                        onClick={() => setShowFeedbackModal(true)}
+                        className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-all duration-200 shadow-sm"
+                      >
+                        <FaCheckCircle className="mr-2" />
+                        Verify & Close Issue
+                      </button>
+                    )}
                 </div>
               </div>
             </motion.div>
@@ -590,7 +656,7 @@ const IssueDetails = () => {
             >
               <div className="p-6">
                 <h2 className="text-xl font-bold text-blue-600 mb-4">Issue Details</h2>
-                
+
                 <div className="space-y-4">
                   <div>
                     <h3 className="text-sm font-medium text-blue-500">Category</h3>
@@ -598,27 +664,27 @@ const IssueDetails = () => {
                       {issue.category ? issue.category.charAt(0).toUpperCase() + issue.category.slice(1) : 'Not specified'}
                     </p>
                   </div>
-                  
+
                   <div>
                     <h3 className="text-sm font-medium text-blue-500">Priority</h3>
                     <p className="mt-1 text-sm text-blue-800">{getPriorityLabel(issue.priority)}</p>
                   </div>
-                  
+
                   <div>
                     <h3 className="text-sm font-medium text-blue-500">City</h3>
                     <p className="mt-1 text-sm text-blue-800">{issue.city?.name || issue.city || 'Not specified'}</p>
                   </div>
-                  
+
                   <div>
                     <h3 className="text-sm font-medium text-blue-500">Reported On</h3>
                     <p className="mt-1 text-sm text-blue-800">{formatDate(issue.createdAt)}</p>
                   </div>
-                  
+
                   <div>
                     <h3 className="text-sm font-medium text-blue-500">Last Updated</h3>
                     <p className="mt-1 text-sm text-blue-800">{formatDate(issue.updatedAt || issue.createdAt)}</p>
                   </div>
-                  
+
                   {issue.location && issue.location.coordinates && (
                     <div>
                       <h3 className="text-sm font-medium text-blue-500">Coordinates</h3>
@@ -643,7 +709,7 @@ const IssueDetails = () => {
                   <h2 className="text-xl font-bold text-blue-600 mb-4 flex items-center">
                     <FaBuilding className="mr-2" /> Department Actions
                   </h2>
-                  
+
                   {(() => {
                     const styles = getStatusStyles(issue.status);
                     return (
@@ -658,7 +724,7 @@ const IssueDetails = () => {
                       </div>
                     );
                   })()}
-                  
+
                   <div className="p-4 bg-blue-50 rounded-lg mb-6 border-l-4 border-blue-500">
                     <div className="flex items-start">
                       <FaInfoCircle className="text-blue-500 mt-0.5 mr-2 flex-shrink-0" />
@@ -668,17 +734,17 @@ const IssueDetails = () => {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
                     <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
                       <h3 className="font-medium text-blue-600">Update Status</h3>
                     </div>
                     <div className="p-4">
-                      <StatusUpdater 
+                      <StatusUpdater
                         issueId={issue._id || issue.id}
-                        currentStatus={issue.status} 
-                        onStatusUpdate={handleStatusUpdate} 
-                        allowedStatuses={['Open', 'In Progress', 'Resolved']} 
+                        currentStatus={issue.status}
+                        onStatusUpdate={handleStatusUpdate}
+                        allowedStatuses={['Open', 'In Progress', 'Resolved']}
                       />
                     </div>
                   </div>
@@ -688,7 +754,7 @@ const IssueDetails = () => {
           </div>
         </div>
       </div>
-      
+
       {/* Feedback Modal */}
       <FeedbackModal />
     </>

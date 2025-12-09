@@ -21,9 +21,9 @@ async function checkIssues() {
             .populate('city', 'name')
             .populate('reportedBy', 'name email role')
             .limit(10);
-        
+
         console.log(`📋 Found ${issues.length} issues:\n`);
-        
+
         issues.forEach((issue, index) => {
             console.log(`Issue ${index + 1}:`);
             console.log(`  Title: ${issue.title}`);
@@ -39,7 +39,7 @@ async function checkIssues() {
         console.log('\n👥 Department Users:\n');
         const deptUsers = await User.find({ role: 'department' })
             .populate('city', 'name');
-        
+
         deptUsers.forEach((user, index) => {
             console.log(`Dept User ${index + 1}:`);
             console.log(`  Name: ${user.name}`);

@@ -272,7 +272,7 @@ const updateIssue = asyncHandler(async (req, res) => {
   if (priority) issue.priority = priority;
   if (location) issue.location = location;
 
-    // Update status if provided and has changed
+  // Update status if provided and has changed
   if (req.body.status && req.body.status !== issue.status) {
     // Only department or admin can change status
     if (req.user.role !== 'admin' && req.user.role !== 'department') {
@@ -304,6 +304,7 @@ const updateIssue = asyncHandler(async (req, res) => {
         updatedAt: new Date(),
         note: statusNote,
         images: statusImages,
+        locationUpdate: req.body.locationUpdate || null,
         timestamp: Date.now()
       });
     } else {
@@ -313,6 +314,7 @@ const updateIssue = asyncHandler(async (req, res) => {
         updatedAt: new Date(),
         note: statusNote,
         images: statusImages,
+        locationUpdate: req.body.locationUpdate || null,
         timestamp: Date.now()
       }];
     }    // Update resolved/closed dates

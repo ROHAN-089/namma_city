@@ -117,6 +117,7 @@ const issueSchema = new mongoose.Schema({
     },
     note: String,
     images: [String],
+    locationUpdate: String,
     timestamp: {
       type: Date,
       default: Date.now
@@ -269,7 +270,9 @@ issueSchema.methods.escalate = function (escalatedBy, reason, action) {
   return this;
 };
 
-// Pre-save hook to update statusHistory automatically
+// Pre-save hook disabled - statusHistory is now managed in the controller
+// This prevents duplicate entries in statusHistory
+/*
 issueSchema.pre('save', function (next) {
   if (this.isModified('status')) {
     this.statusHistory.push({
@@ -285,6 +288,7 @@ issueSchema.pre('save', function (next) {
   }
   next();
 });
+*/
 
 const Issue = mongoose.model('Issue', issueSchema);
 

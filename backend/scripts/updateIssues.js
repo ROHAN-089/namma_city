@@ -28,12 +28,12 @@ async function updateIssues() {
 
         // Find all issues
         const issues = await Issue.find({});
-        
+
         console.log(`Found ${issues.length} issues\n`);
-        
+
         let updatedCount = 0;
         let alreadySetCount = 0;
-        
+
         for (const issue of issues) {
             if (!issue.department || issue.department === '') {
                 const department = categoryToDepartment[issue.category] || 'OTHER';
@@ -47,7 +47,7 @@ async function updateIssues() {
                 alreadySetCount++;
             }
         }
-        
+
         console.log(`\n🎯 Summary:`);
         console.log(`   Total issues: ${issues.length}`);
         console.log(`   Updated: ${updatedCount}`);
